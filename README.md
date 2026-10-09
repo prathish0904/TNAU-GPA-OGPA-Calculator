@@ -1,1 +1,0 @@
-# TNAU-GPA-OGPA-Calculator
