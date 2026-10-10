@@ -31,7 +31,9 @@
     .theme-card-light { background-color: var(--primary-light) !important; border-color: var(--primary-border) !important; }
     .theme-text { color: var(--primary-text) !important; }
 
-    /* Single Page Print Styles */
+    /* Single Page Print Styles & Conditional Hidden Elements */
+    .print-only { display: none; }
+
     @media print {
       body {
         background: white !important;
@@ -40,6 +42,7 @@
         zoom: 85%;
       }
       .no-print { display: none !important; }
+      .print-only { display: flex !important; }
       header, footer, section { box-shadow: none !important; margin: 0 !important; padding: 4px 0 !important; }
       main { padding: 0 !important; display: block !important; }
       .lg\:col-span-8, .lg\:col-span-4 { width: 100% !important; margin-bottom: 10px !important; }
@@ -273,20 +276,20 @@
         </div>
 
         <!-- Profile Summary Bar -->
-        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
-          <div class="flex justify-between">
+        <div id="printProfileBox" class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
+          <div id="printRowName" class="flex justify-between">
             <span class="text-slate-500">Student Name:</span>
             <span id="summaryName" class="font-semibold text-slate-800">-</span>
           </div>
-          <div class="flex justify-between">
+          <div id="printRowId" class="flex justify-between">
             <span class="text-slate-500">ID / Roll No:</span>
             <span id="summaryId" class="font-semibold text-slate-800">-</span>
           </div>
-          <div class="flex justify-between">
+          <div id="printRowSem" class="flex justify-between">
             <span class="text-slate-500">Semester:</span>
             <span id="summarySem" class="font-semibold text-slate-800">-</span>
           </div>
-          <div class="flex justify-between">
+          <div id="printRowBatch" class="flex justify-between">
             <span class="text-slate-500">Batch:</span>
             <span id="summaryBatch" class="font-semibold text-slate-800">-</span>
           </div>
@@ -302,6 +305,10 @@
         <!-- Metrics Breakdown -->
         <div class="space-y-3 text-xs divide-y divide-slate-100">
           <div class="flex justify-between pt-1">
+            <span class="text-slate-500">Calculation Mode:</span>
+            <span class="font-semibold theme-text uppercase tracking-wide" id="summaryModeDisplay">Single Semester GPA</span>
+          </div>
+          <div class="flex justify-between pt-3">
             <span class="text-slate-500">Total Credit Hours:</span>
             <span class="font-semibold text-slate-800" id="semCreditsDisplay">0.0</span>
           </div>
@@ -426,6 +433,7 @@
       const row1 = document.getElementById('ogpaPriorRow1');
       const row2 = document.getElementById('ogpaPriorRow2');
       const scoreLabel = document.getElementById('scoreLabel');
+      const modeDisplay = document.getElementById('summaryModeDisplay');
 
       if (mode === 'gpa') {
         gpaBtn.className = 'flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all theme-btn-primary shadow-sm';
@@ -434,6 +442,7 @@
         row1.classList.add('hidden');
         row2.classList.add('hidden');
         scoreLabel.innerText = 'Semester GPA';
+        modeDisplay.innerText = 'Single Semester GPA';
       } else {
         ogpaBtn.className = 'flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all theme-btn-primary shadow-sm';
         gpaBtn.className = 'flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
@@ -441,6 +450,7 @@
         row1.classList.remove('hidden');
         row2.classList.remove('hidden');
         scoreLabel.innerText = 'Cumulative OGPA';
+        modeDisplay.innerText = 'Cumulative OGPA';
       }
       calculate();
     }
@@ -566,10 +576,25 @@
       const sem = document.getElementById('semesterInput').value.trim();
       const batch = document.getElementById('batchInput').value.trim();
 
+      // Update screen view
       document.getElementById('summaryName').innerText = name || '-';
       document.getElementById('summaryId').innerText = id || '-';
       document.getElementById('summarySem').innerText = sem || '-';
       document.getElementById('summaryBatch').innerText = batch || '-';
+
+      // Conditionally hide empty fields in print/screen view
+      document.getElementById('printRowName').style.display = name ? 'flex' : 'none';
+      document.getElementById('printRowId').style.display = id ? 'flex' : 'none';
+      document.getElementById('printRowSem').style.display = sem ? 'flex' : 'none';
+      document.getElementById('printRowBatch').style.display = batch ? 'flex' : 'none';
+
+      // If all student fields are empty, hide the entire profile box
+      const profileBox = document.getElementById('printProfileBox');
+      if (!name && !id && !sem && !batch) {
+        profileBox.style.display = 'none';
+      } else {
+        profileBox.style.display = 'block';
+      }
 
       const rows = document.querySelectorAll('#courseTableBody tr');
       let semCredits = 0;
