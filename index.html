@@ -5,9 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="author" content="Prathish P - B.Tech (Energy and Environmental Engineering)">
-  <meta name="description" content="Calculate single-semester or cumulative GPA & OGPA for TNAU (Tamil Nadu Agricultural University) courses on a 10-point scale. Free, fast, and print-ready.">
+  <meta name="description" content="Calculate single-semester, multi-semester, and cumulative OGPA for TNAU courses on a 10-point scale. Free, fast, and print-ready.">
   <meta name="keywords" content="TNAU GPA calculator, GPA calculator for agri, TNAU OGPA calculator, Tamil Nadu Agricultural University, TNAU grade calculator">
-  <title>TNAU GPA & OGPA Calculator | TNAU Courses</title>
+  <title>TNAU Multi-Semester GPA & OGPA Engine</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons CDN -->
@@ -16,7 +16,6 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
 
-    /* Dynamic CSS Variables for Custom Themes */
     :root {
       --primary-color: #065f46;
       --primary-hover: #047857;
@@ -31,26 +30,47 @@
     .theme-card-light { background-color: var(--primary-light) !important; border-color: var(--primary-border) !important; }
     .theme-text { color: var(--primary-text) !important; }
 
-    /* Single Page Print Styles & Conditional Hidden Elements */
     .print-only { display: none; }
 
     @media print {
       body {
         background: white !important;
         color: black !important;
-        font-size: 11px !important;
-        zoom: 85%;
+        font-size: 10px !important;
+        zoom: 100%;
       }
       .no-print { display: none !important; }
       .print-only { display: flex !important; }
       header, footer, section { box-shadow: none !important; margin: 0 !important; padding: 4px 0 !important; }
-      main { padding: 0 !important; display: block !important; }
+      main { padding: 0 !important; display: block !important; width: 100% !important; max-width: none !important; }
       .lg\:col-span-8, .lg\:col-span-4 { width: 100% !important; margin-bottom: 10px !important; }
-      table { font-size: 10px !important; }
-      th, td { padding: 4px 6px !important; border-color: #cbd5e1 !important; }
-      #resultsCard { position: static !important; border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
       
-      /* Automatically hide empty course rows during print */
+      /* Prevent semester cards from breaking across pages */
+      .semester-card {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        margin-bottom: 15px !important;
+      }
+      
+      table { font-size: 9px !important; width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; }
+      
+      /* Rigid PDF Print Column Widths & Wrapped Centered Headers */
+      th:nth-child(1), td:nth-child(1) { width: 5% !important; text-align: center !important; }  /* # */
+      th:nth-child(2), td:nth-child(2) { width: 16% !important; text-align: center !important; } /* Course Code */
+      th:nth-child(3), td:nth-child(3) { width: 37% !important; text-align: left !important; }   /* Course Title */
+      th:nth-child(4), td:nth-child(4) { width: 12% !important; text-align: center !important; } /* Credit Hours */
+      th:nth-child(5), td:nth-child(5) { width: 10% !important; text-align: center !important; } /* Marks */
+      th:nth-child(6), td:nth-child(6) { width: 9% !important; text-align: center !important; }  /* Grade Point */
+      th:nth-child(7), td:nth-child(7) { width: 11% !important; text-align: center !important; } /* Credit Point */
+      th:nth-child(8), td:nth-child(8) { display: none !important; } /* Status hidden */
+      th:nth-child(9), td:nth-child(9) { display: none !important; } /* Delete action hidden */
+
+      th { white-space: normal !important; word-break: break-word !important; line-height: 1.2 !important; text-align: center !important; vertical-align: middle !important; }
+      th, td { padding: 5px 6px !important; border-color: #cbd5e1 !important; }
+      
+      input, select, textarea { border: none !important; background: transparent !important; padding: 0 !important; font-size: 9px !important; width: 100% !important; word-break: break-word !important; }
+      
+      #resultsCard { position: static !important; border: 1px solid #cbd5e1 !important; box-shadow: none !important; width: 100% !important; break-inside: avoid !important; page-break-inside: avoid !important; }
       .empty-course-row { display: none !important; }
       @page { size: A4 portrait; margin: 10mm; }
     }
@@ -65,17 +85,14 @@
         <div>
           <div class="flex items-center gap-2">
             <i data-lucide="calculator" class="w-8 h-8 text-white/90"></i>
-            <h2 class="text-2xl font-bold tracking-tight">TNAU GPA & OGPA Calculator</h2>
+            <h2 class="text-2xl font-bold tracking-tight">TNAU Multi-Semester GPA & OGPA Engine</h2>
           </div>
           <p class="text-white/80 text-sm mt-1">
             10-Point Scale Engine • Developed by <span class="font-semibold text-white">Prathish P</span> | B.Tech (Energy and Environmental Engineering), Batch 2024–2028
           </p>
         </div>
 
-        <!-- Controls: Theme & Pass Mark Settings -->
         <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          
-          <!-- Theme Customizer Trigger -->
           <div class="bg-black/20 backdrop-blur-md border border-white/20 rounded-xl p-2 flex items-center gap-2">
             <i data-lucide="palette" class="w-4 h-4 text-white/90"></i>
             <span class="text-xs font-semibold text-white">Theme:</span>
@@ -89,7 +106,6 @@
             <input type="color" id="customColorPicker" value="#065f46" oninput="applyCustomColor(this.value)" title="Choose Custom Theme Color" class="w-6 h-6 rounded border-0 cursor-pointer bg-transparent">
           </div>
 
-          <!-- Editable Pass Mark Setting -->
           <div class="bg-black/20 backdrop-blur-md border border-white/20 rounded-xl p-2 flex items-center gap-2">
             <i data-lucide="check-circle-2" class="w-4 h-4 text-white/90"></i>
             <span class="text-xs font-semibold text-white">Pass Mark:</span>
@@ -100,24 +116,40 @@
               <span class="text-xs font-bold text-white">%</span>
             </div>
           </div>
-
         </div>
       </div>
     </div>
   </header>
 
-  <!-- SEO Description Banner (Placed right after Header) -->
+  <!-- Profile Switcher & SEO Banner -->
   <section class="max-w-6xl mx-auto mt-6 px-4 no-print">
-    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-      <h1 class="text-base font-bold text-slate-800 mb-1">
-        Instant TNAU Semester GPA & Cumulative OGPA Calculator
-      </h1>
-      <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
-        Welcome to the <strong>TNAU GPA and OGPA Calculator</strong> designed by a student for students of 
-        <strong>Tamil Nadu Agricultural University (TNAU)</strong>. Calculate single-semester or 
-        cumulative semester GPA simply by entering the course code and marks. The system automatically 
-        calculates GPA and OGPA for free with an option to print the output for all TNAU courses.
-      </p>
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-base font-bold text-slate-800 mb-1">
+          Multi-Semester TNAU Semester GPA & Cumulative OGPA Calculator
+        </h1>
+        <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
+          Records are permanently saved on this browser. Create or rename profiles for different students using Name or ID Number.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-medium">
+          <i data-lucide="users" class="w-4 h-4 text-slate-500"></i>
+          <span class="text-slate-500">Profile:</span>
+          <select id="profileSwitcher" onchange="switchProfile(this.value)" class="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[220px]">
+            <!-- Loaded dynamically -->
+          </select>
+        </div>
+        <button onclick="promptRenameProfile()" class="p-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-200 transition" title="Rename Current Profile">
+          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+        </button>
+        <button onclick="createNewProfile()" class="px-3 py-1.5 theme-card-light theme-text border rounded-xl text-xs font-semibold transition flex items-center gap-1">
+          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> New Profile
+        </button>
+        <button onclick="deleteCurrentProfile()" class="p-2 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition" title="Delete Profile">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
     </div>
   </section>
 
@@ -129,7 +161,7 @@
 
       <!-- STUDENT DETAILS CARD -->
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2 border-b border-slate-100 pb-3 no-print">
           <i data-lucide="user-check" class="w-5 h-5 theme-text"></i>
           <div>
             <h3 class="text-base font-bold text-slate-800">Student Profile Information</h3>
@@ -139,127 +171,51 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Student Name</label>
-            <input type="text" id="studentNameInput" placeholder="Enter Name" oninput="calculate()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+            <input type="text" id="studentNameInput" placeholder="Enter Name" oninput="handleProfileDetailInput()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">ID / Roll No.</label>
-            <input type="text" id="studentIdInput" placeholder="Enter ID Number" oninput="calculate()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+            <label class="block font-semibold text-slate-700 mb-1">ID Number</label>
+            <input type="text" id="studentIdInput" placeholder="Enter ID Number" oninput="handleProfileDetailInput()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Semester</label>
-            <select id="semesterInput" onchange="calculate()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500 font-medium">
-              <option value="">Select Semester</option>
-              <option value="I">Semester I</option>
-              <option value="II">Semester II</option>
-              <option value="III">Semester III</option>
-              <option value="IV">Semester IV</option>
-              <option value="V">Semester V</option>
-              <option value="VI">Semester VI</option>
-              <option value="VII">Semester VII</option>
-              <option value="VIII">Semester VIII</option>
-            </select>
+            <label class="block font-semibold text-slate-700 mb-1">Degree Programme</label>
+            <input type="text" id="degreeInput" placeholder="e.g. B.Tech (EEE)" oninput="saveAndCalculate()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Batch</label>
-            <input type="text" id="batchInput" placeholder="e.g. 2024 - 2028" oninput="calculate()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+            <input type="text" id="batchInput" placeholder="e.g. 2024 - 2028" oninput="saveAndCalculate()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
           </div>
         </div>
       </div>
 
-      <!-- Calculation Mode Toggle -->
-      <div id="modeCard" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h3 class="text-base font-semibold text-slate-800 flex items-center gap-2">
-            <i data-lucide="layers" class="w-5 h-5 theme-text"></i> Calculation Mode
-          </h3>
-          <p class="text-xs text-slate-500 mt-0.5">Calculate current semester GPA or include previous credit points for OGPA.</p>
+      <!-- Bulk Text Importer Box -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 no-print">
+        <div class="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+          <i data-lucide="clipboard-list" class="w-5 h-5 theme-text"></i>
+          <h3 class="text-sm font-bold text-slate-800">Quick Text Bulk Importer</h3>
         </div>
-        <div class="flex items-center bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
-          <button id="modeGpaBtn" onclick="setMode('gpa')" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all theme-btn-primary shadow-sm">
-            Single Semester GPA
-          </button>
-          <button id="modeOgpaBtn" onclick="setMode('ogpa')" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900">
-            Cumulative OGPA
-          </button>
-        </div>
-      </div>
-
-      <!-- Prior Credits Section (OGPA Mode Only) -->
-      <div id="priorSection" class="hidden theme-card-light border rounded-2xl p-5 space-y-4">
-        <div class="flex items-center gap-2 border-b border-slate-200/60 pb-3">
-          <i data-lucide="history" class="w-5 h-5 theme-text"></i>
-          <div>
-            <h3 class="text-sm font-semibold theme-text">Prior Academic History (Previous Semesters)</h3>
-            <p class="text-xs text-slate-600">Enter aggregated totals from previous semesters for total OGPA calculation.</p>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Total Prior Credit Hours</label>
-            <input type="number" id="priorCredits" step="0.5" min="0" placeholder="Prior Credit Hours" oninput="calculate()" class="w-full text-sm px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Total Prior Credit Points (CP)</label>
-            <input type="number" id="priorPoints" step="0.01" min="0" placeholder="Prior Credit Points" oninput="calculate()" class="w-full text-sm px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition">
-          </div>
-        </div>
-      </div>
-
-      <!-- Courses Input Section -->
-      <div id="courseCard" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h3 class="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <i data-lucide="book-open" class="w-5 h-5 theme-text"></i> Semester Courses
-            </h3>
-            <div class="mt-1 space-y-0.5">
-              <p class="text-xs text-slate-500">Enter credit split (e.g. 1+1 or 3) and score as either Marks (0-100) or Grade Point (0-10).</p>
-              <p class="text-xs font-semibold text-amber-700 bg-amber-50 inline-block px-2 py-0.5 rounded-md border border-amber-200/80">
-                ⚠️ Note: Calculate for credit courses alone. Non-credit / audit courses should be omitted.
-              </p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 w-full sm:w-auto no-print">
-            <button onclick="addCourseRow()" class="flex-1 sm:flex-none px-3.5 py-2 theme-card-light theme-text border rounded-xl text-xs font-semibold hover:opacity-80 transition flex items-center justify-center gap-1.5">
-              <i data-lucide="plus" class="w-4 h-4"></i> Add Course
-            </button>
-            <button onclick="resetAll()" class="px-3.5 py-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-200 transition flex items-center justify-center gap-1.5">
-              <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset
+        <div class="grid grid-cols-1 gap-2">
+          <textarea id="bulkImportInput" rows="3" placeholder="Paste course lines here (e.g., Sem I \n FMP 212 2+1 7.05)..." class="w-full text-xs font-mono p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"></textarea>
+          <div class="flex justify-between items-center">
+            <button onclick="clearImportText()" class="text-xs text-slate-400 hover:text-slate-600 font-medium">Clear Text Box</button>
+            <button onclick="processBulkImport()" class="px-4 py-2 theme-card-light theme-text border rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Parse & Import to Active Semester
             </button>
           </div>
         </div>
+      </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm">
-            <thead class="bg-slate-50 border-b border-slate-200 text-xs text-slate-600 uppercase tracking-wider">
-              <tr>
-                <th class="px-3 py-3.5 font-semibold w-8">#</th>
-                <th class="px-3 py-3.5 font-semibold w-28">Code</th>
-                <th class="px-3 py-3.5 font-semibold min-w-[150px]">Course Title</th>
-                <th class="px-3 py-3.5 font-semibold w-24">Credit Hours</th>
-                <th class="px-3 py-3.5 font-semibold w-24">Marks (100)</th>
-                <th class="px-3 py-3.5 font-semibold w-24">GP (10)</th>
-                <th class="px-3 py-3.5 font-semibold w-16">Credit Pt</th>
-                <th class="px-3 py-3.5 font-semibold w-20 text-center">Status</th>
-                <th class="px-3 py-3.5 font-semibold w-10 text-center no-print"></th>
-              </tr>
-            </thead>
-            <tbody id="courseTableBody" class="divide-y divide-slate-100">
-              <!-- Dynamic Blank Rows -->
-            </tbody>
-          </table>
-        </div>
+      <!-- Dynamic Semester Blocks Container -->
+      <div id="semestersContainer" class="space-y-6">
+        <!-- Dynamic Semesters rendered here -->
+      </div>
 
-        <!-- Preset Chips -->
-        <div class="p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs no-print">
-          <span class="text-slate-500 font-medium">Quick Credit Split Shortcuts:</span>
-          <div class="flex flex-wrap gap-2">
-            <button onclick="addPresetRow('1+0', 1)" class="px-2.5 py-1 bg-white border border-slate-200 hover:border-emerald-500 rounded-lg text-slate-700 font-medium transition">+ 1+0 (1 Cr)</button>
-            <button onclick="addPresetRow('1+1', 2)" class="px-2.5 py-1 bg-white border border-slate-200 hover:border-emerald-500 rounded-lg text-slate-700 font-medium transition">+ 1+1 (2 Cr)</button>
-            <button onclick="addPresetRow('1+2', 3)" class="px-2.5 py-1 bg-white border border-slate-200 hover:border-emerald-500 rounded-lg text-slate-700 font-medium transition">+ 1+2 (3 Cr)</button>
-            <button onclick="addPresetRow('2+1', 3)" class="px-2.5 py-1 bg-white border border-slate-200 hover:border-emerald-500 rounded-lg text-slate-700 font-medium transition">+ 2+1 (3 Cr)</button>
-          </div>
-        </div>
+      <!-- Controls to Add Semesters -->
+      <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm no-print">
+        <span class="text-xs font-semibold text-slate-600">Need to add a semester?</span>
+        <button onclick="addNewSemesterBlock(); saveAndCalculate();" class="px-4 py-2 theme-card-light theme-text border rounded-xl text-xs font-bold hover:opacity-80 transition flex items-center gap-1.5">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i> Add New Semester
+        </button>
       </div>
 
     </div>
@@ -267,14 +223,14 @@
     <!-- Right Column: Summary & Controls -->
     <div class="lg:col-span-4 space-y-6">
 
-      <!-- Results Summary Card -->
+      <!-- Overall Cumulative Results Summary Card -->
       <div id="resultsCard" class="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-6 sticky top-6">
         <div class="flex items-center justify-between border-b border-slate-100 pb-4">
           <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
-            <i data-lucide="award" class="w-5 h-5 theme-text"></i> Result Summary
+            <i data-lucide="award" class="w-5 h-5 theme-text"></i> Cumulative OGPA
           </h3>
-          <span id="overallStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
-            Pending
+          <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 uppercase tracking-wider">
+            All Semesters
           </span>
         </div>
 
@@ -285,12 +241,12 @@
             <span id="summaryName" class="font-semibold text-slate-800">-</span>
           </div>
           <div id="printRowId" class="flex justify-between">
-            <span class="text-slate-500">ID / Roll No:</span>
+            <span class="text-slate-500">ID Number:</span>
             <span id="summaryId" class="font-semibold text-slate-800">-</span>
           </div>
-          <div id="printRowSem" class="flex justify-between">
-            <span class="text-slate-500">Semester:</span>
-            <span id="summarySem" class="font-semibold text-slate-800">-</span>
+          <div id="printRowDegree" class="flex justify-between">
+            <span class="text-slate-500">Programme:</span>
+            <span id="summaryDegree" class="font-semibold text-slate-800">-</span>
           </div>
           <div id="printRowBatch" class="flex justify-between">
             <span class="text-slate-500">Batch:</span>
@@ -298,38 +254,30 @@
           </div>
         </div>
 
-        <!-- Main Score Display -->
+        <!-- Main OGPA Score Display -->
         <div id="scoreBox" class="theme-header rounded-2xl p-6 text-white text-center shadow-inner relative overflow-hidden transition-colors duration-300">
-          <p id="scoreLabel" class="text-xs font-medium uppercase tracking-wider text-white/80">Semester GPA</p>
-          <div class="text-4xl font-extrabold tracking-tight my-2" id="mainScoreDisplay">0.00</div>
-          <p class="text-xs text-white/90" id="percentageDisplay">Percentage: 0.00%</p>
+          <p class="text-xs font-medium uppercase tracking-wider text-white/80">Cumulative OGPA</p>
+          <div class="text-4xl font-extrabold tracking-tight my-2" id="cumulativeOgpaDisplay">0.00</div>
+          <p class="text-xs text-white/90" id="percentageDisplay">Overall Percentage: 0.00%</p>
+        </div>
+
+        <!-- Individual Semester GPA Breakdown Table -->
+        <div class="space-y-2">
+          <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-1">Semester Breakdown</h4>
+          <div id="semesterBreakdownList" class="space-y-1.5 text-xs">
+            <!-- Rendered dynamically -->
+          </div>
         </div>
 
         <!-- Metrics Breakdown -->
-        <div class="space-y-3 text-xs divide-y divide-slate-100">
+        <div class="space-y-3 text-xs divide-y divide-slate-100 pt-2 border-t border-slate-200">
           <div class="flex justify-between pt-1">
-            <span class="text-slate-500">Calculation Mode:</span>
-            <span class="font-semibold theme-text uppercase tracking-wide" id="summaryModeDisplay">Single Semester GPA</span>
+            <span class="text-slate-500">Total Evaluated Credits:</span>
+            <span class="font-semibold text-slate-800" id="totalCreditsDisplay">0.0</span>
           </div>
           <div class="flex justify-between pt-3">
-            <span class="text-slate-500">Total Credit Hours:</span>
-            <span class="font-semibold text-slate-800" id="semCreditsDisplay">0.0</span>
-          </div>
-          <div class="flex justify-between pt-3">
-            <span class="text-slate-500">Total Credit Points (CP):</span>
-            <span class="font-semibold text-slate-800" id="semPointsDisplay">0.00</span>
-          </div>
-          <div id="ogpaPriorRow1" class="hidden flex justify-between pt-3 theme-text">
-            <span class="font-medium">Prior Cumulative Credits:</span>
-            <span class="font-semibold" id="priorCreditsDisplay">0.0</span>
-          </div>
-          <div id="ogpaPriorRow2" class="hidden flex justify-between pt-3 theme-text">
-            <span class="font-medium">Prior Credit Points:</span>
-            <span class="font-semibold" id="priorPointsDisplay">0.00</span>
-          </div>
-          <div class="flex justify-between pt-3 font-semibold text-slate-900 border-t border-slate-200">
-            <span>Cumulative Evaluated Credits:</span>
-            <span id="totalCreditsDisplay">0.0</span>
+            <span class="text-slate-500">Total Earned Credit Points:</span>
+            <span class="font-semibold text-slate-800" id="totalPointsDisplay">0.00</span>
           </div>
         </div>
 
@@ -362,9 +310,9 @@
 
   <!-- Application Logic -->
   <script>
-    let currentMode = 'gpa'; 
-    let courseCount = 0;
+    let semesterCounter = 0;
     let passMarkThreshold = 50; 
+    let currentProfileId = 'profile_default';
 
     const themePresets = {
       emerald: { primary: '#065f46', hover: '#047857', light: '#ecfdf5', border: '#a7f3d0', text: '#065f46' },
@@ -374,19 +322,200 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-      for (let i = 0; i < 4; i++) {
-        addCourseRow();
-      }
-      calculate();
+      initProfiles();
       lucide.createIcons();
     });
+
+    function toRoman(input) {
+      if (typeof input === 'number') {
+        input = String(input);
+      }
+      if (!input) return '';
+      input = input.trim().toUpperCase();
+
+      if (/^[IVXLCDM]+$/.test(input)) {
+        return input;
+      }
+
+      const cleaned = input.replace(/\D/g, '');
+      let num = parseInt(cleaned, 10);
+      if (isNaN(num) || num <= 0) return input;
+      
+      const lookup = {M:1000, CM:900, D:500, CD:400, C:100, XC:90, L:50, XL:40, X:10, IX:9, V:5, IV:4, I:1};
+      let roman = '';
+      for (let i in lookup) {
+        while (num >= lookup[i]) {
+          roman += i;
+          num -= lookup[i];
+        }
+      }
+      return roman;
+    }
+
+    function formatSemesterTitle(inputTitle) {
+      if (!inputTitle) return '';
+      const match = inputTitle.match(/(?:sem(?:ester)?\.?\s*)?([0-9]+|[IVXLCDM]+)/i);
+      if (match && match[1]) {
+        const romanVal = toRoman(match[1]);
+        return `Semester ${romanVal}`;
+      }
+      return inputTitle;
+    }
+
+    function getAllProfiles() {
+      const list = localStorage.getItem('tnau_profiles_list');
+      if (!list) {
+        const defaultProfiles = { 'profile_default': { name: 'Default Student', id: '' } };
+        localStorage.setItem('tnau_profiles_list', JSON.stringify(defaultProfiles));
+        return defaultProfiles;
+      }
+      const parsed = JSON.parse(list);
+      // Ensure backward compatibility with string-based profile maps
+      for (const key in parsed) {
+        if (typeof parsed[key] === 'string') {
+          parsed[key] = { name: parsed[key], id: '' };
+        }
+      }
+      return parsed;
+    }
+
+    function initProfiles() {
+      const profiles = getAllProfiles();
+      const switcher = document.getElementById('profileSwitcher');
+      switcher.innerHTML = '';
+
+      let foundActive = false;
+      for (const [id, info] of Object.entries(profiles)) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        
+        let label = info.name || info.id || 'Unnamed Profile';
+        if (info.name && info.id) {
+          label = `${info.name} (${info.id})`;
+        }
+        
+        opt.innerText = label;
+        switcher.appendChild(opt);
+        if (id === currentProfileId) foundActive = true;
+      }
+
+      if (!foundActive) {
+        currentProfileId = Object.keys(profiles)[0];
+      }
+      switcher.value = currentProfileId;
+      loadProfileData(currentProfileId);
+    }
+
+    function switchProfile(profileId) {
+      currentProfileId = profileId;
+      loadProfileData(profileId);
+    }
+
+    function createNewProfile() {
+      const inputVal = prompt('Enter Student Name or ID Number for the new profile:');
+      if (!inputVal || !inputVal.trim()) return;
+
+      const newId = 'profile_' + Date.now();
+      const profiles = getAllProfiles();
+      
+      const cleanVal = inputVal.trim();
+      const isLikelyId = /^[A-Za-z0-9\-\/]+$/.test(cleanVal) && cleanVal.length > 3 && /\d/.test(cleanVal);
+
+      profiles[newId] = {
+        name: isLikelyId ? '' : cleanVal,
+        id: isLikelyId ? cleanVal : ''
+      };
+
+      localStorage.setItem('tnau_profiles_list', JSON.stringify(profiles));
+
+      currentProfileId = newId;
+      
+      document.getElementById('studentNameInput').value = profiles[newId].name;
+      document.getElementById('studentIdInput').value = profiles[newId].id;
+      document.getElementById('degreeInput').value = '';
+      document.getElementById('batchInput').value = '';
+      document.getElementById('semestersContainer').innerHTML = '';
+      semesterCounter = 0;
+
+      initProfiles();
+      saveAndCalculate();
+    }
+
+    function promptRenameProfile() {
+      const profiles = getAllProfiles();
+      const current = profiles[currentProfileId] || { name: 'Unnamed Student', id: '' };
+      
+      const newName = prompt('Update Student Name:', current.name || '');
+      const newStudentId = prompt('Update Student ID Number:', current.id || '');
+
+      if (newName !== null || newStudentId !== null) {
+        if (newName !== null) current.name = newName.trim();
+        if (newStudentId !== null) current.id = newStudentId.trim();
+
+        document.getElementById('studentNameInput').value = current.name;
+        document.getElementById('studentIdInput').value = current.id;
+        
+        profiles[currentProfileId] = current;
+        localStorage.setItem('tnau_profiles_list', JSON.stringify(profiles));
+        initProfiles();
+        saveAndCalculate();
+      }
+    }
+
+    function handleProfileDetailInput() {
+      const nameVal = document.getElementById('studentNameInput').value;
+      const idVal = document.getElementById('studentIdInput').value;
+      
+      updateProfileMetadata(nameVal, idVal);
+      saveAndCalculate();
+    }
+
+    function updateProfileMetadata(newName, newId) {
+      const profiles = getAllProfiles();
+      if (profiles[currentProfileId]) {
+        profiles[currentProfileId] = {
+          name: newName !== undefined ? newName.trim() : (profiles[currentProfileId].name || ''),
+          id: newId !== undefined ? newId.trim() : (profiles[currentProfileId].id || '')
+        };
+        localStorage.setItem('tnau_profiles_list', JSON.stringify(profiles));
+        
+        const switcher = document.getElementById('profileSwitcher');
+        const opt = switcher.querySelector(`option[value="${currentProfileId}"]`);
+        if (opt) {
+          const info = profiles[currentProfileId];
+          let label = info.name || info.id || 'Unnamed Profile';
+          if (info.name && info.id) {
+            label = `${info.name} (${info.id})`;
+          }
+          opt.innerText = label;
+        }
+      }
+    }
+
+    function deleteCurrentProfile() {
+      const profiles = getAllProfiles();
+      const keys = Object.keys(profiles);
+      if (keys.length <= 1) {
+        alert('You must keep at least one student profile.');
+        return;
+      }
+
+      if (confirm('Are you sure you want to delete this profile and all its saved semester records?')) {
+        localStorage.removeItem('tnau_data_' + currentProfileId);
+        delete profiles[currentProfileId];
+        localStorage.setItem('tnau_profiles_list', JSON.stringify(profiles));
+
+        currentProfileId = Object.keys(profiles)[0];
+        initProfiles();
+      }
+    }
 
     function setPassMark(val) {
       const num = parseFloat(val);
       if (!isNaN(num) && num >= 0 && num <= 100) {
         passMarkThreshold = num;
         document.getElementById('customPassInput').value = num;
-        calculate();
+        saveAndCalculate();
       }
     }
 
@@ -400,6 +529,7 @@
         document.getElementById('customColorPicker').value = theme.primary;
         setCSSVariables(theme.primary, theme.hover, theme.light, theme.border, theme.text);
       }
+      saveAndCalculate();
     }
 
     function applyCustomColor(hexColor) {
@@ -408,6 +538,7 @@
       const lightColor = adjustHexColor(hexColor, 92);
       const borderColor = adjustHexColor(hexColor, 70);
       setCSSVariables(hexColor, hoverColor, lightColor, borderColor, hexColor);
+      saveAndCalculate();
     }
 
     function setCSSVariables(primary, hover, light, border, text) {
@@ -428,34 +559,155 @@
       return '#' + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
     }
 
-    function setMode(mode) {
-      currentMode = mode;
-      const gpaBtn = document.getElementById('modeGpaBtn');
-      const ogpaBtn = document.getElementById('modeOgpaBtn');
-      const priorSec = document.getElementById('priorSection');
-      const row1 = document.getElementById('ogpaPriorRow1');
-      const row2 = document.getElementById('ogpaPriorRow2');
-      const scoreLabel = document.getElementById('scoreLabel');
-      const modeDisplay = document.getElementById('summaryModeDisplay');
+    function addNewSemesterBlock(title = '') {
+      semesterCounter++;
+      const semId = `sem-block-${semesterCounter}`;
+      const formattedTitle = title ? formatSemesterTitle(title) : `Semester ${toRoman(semesterCounter)}`;
 
-      if (mode === 'gpa') {
-        gpaBtn.className = 'flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all theme-btn-primary shadow-sm';
-        ogpaBtn.className = 'flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
-        priorSec.classList.add('hidden');
-        row1.classList.add('hidden');
-        row2.classList.add('hidden');
-        scoreLabel.innerText = 'Semester GPA';
-        modeDisplay.innerText = 'Single Semester GPA';
-      } else {
-        ogpaBtn.className = 'flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all theme-btn-primary shadow-sm';
-        gpaBtn.className = 'flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
-        priorSec.classList.remove('hidden');
-        row1.classList.remove('hidden');
-        row2.classList.remove('hidden');
-        scoreLabel.innerText = 'Cumulative OGPA';
-        modeDisplay.innerText = 'Cumulative OGPA';
+      const container = document.getElementById('semestersContainer');
+      const div = document.createElement('div');
+      div.className = 'bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden semester-card mb-6';
+      div.id = semId;
+
+      div.innerHTML = `
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <i data-lucide="book-open" class="w-5 h-5 theme-text"></i>
+            <input type="text" value="${formattedTitle}" oninput="formatAndSave(this)" class="sem-title-input text-base font-bold text-slate-800 bg-transparent outline-none border-b border-dashed border-slate-300 focus:border-emerald-500 px-1 py-0.5">
+          </div>
+          <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+            <div class="text-xs font-semibold theme-text bg-white px-3 py-1 rounded-lg border border-slate-200">
+              GPA: <span class="sem-gpa-badge text-sm font-bold">0.00</span>
+            </div>
+            <div class="flex items-center gap-1 no-print">
+              <button onclick="addCourseRowToSem('${semId}'); saveAndCalculate();" class="px-2.5 py-1 theme-card-light theme-text border rounded-lg text-xs font-semibold hover:opacity-80 transition flex items-center gap-1">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Course
+              </button>
+              <button onclick="removeSemesterBlock('${semId}')" class="p-1 text-slate-400 hover:text-red-500 rounded-lg transition" title="Remove Semester">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50/50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
+              <tr>
+                <th class="px-3 py-2.5 font-semibold w-8 text-center align-middle whitespace-normal">#</th>
+                <th class="px-3 py-2.5 font-semibold w-28 text-center align-middle whitespace-normal">Course Code</th>
+                <th class="px-3 py-2.5 font-semibold min-w-[200px] text-center align-middle whitespace-normal">Course Title</th>
+                <th class="px-3 py-2.5 font-semibold w-24 text-center align-middle whitespace-normal">Credit Hours</th>
+                <th class="px-3 py-2.5 font-semibold w-24 text-center align-middle whitespace-normal">Marks</th>
+                <th class="px-3 py-2.5 font-semibold w-24 text-center align-middle whitespace-normal">Grade Point</th>
+                <th class="px-3 py-2.5 font-semibold w-24 text-center align-middle whitespace-normal">Credit Point</th>
+                <th class="px-3 py-2.5 font-semibold w-20 text-center align-middle whitespace-normal">Status</th>
+                <th class="px-3 py-2.5 font-semibold w-10 text-center align-middle whitespace-normal no-print"></th>
+              </tr>
+            </thead>
+            <tbody class="courseTableBody divide-y divide-slate-100">
+              <!-- Course rows -->
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container.appendChild(div);
+      lucide.createIcons();
+      return semId;
+    }
+
+    function formatAndSave(input) {
+      input.value = formatSemesterTitle(input.value);
+      saveAndCalculate();
+    }
+
+    function removeSemesterBlock(semId) {
+      const el = document.getElementById(semId);
+      if (el) {
+        el.remove();
+        saveAndCalculate();
       }
-      calculate();
+    }
+
+    function addCourseRowToSem(semId, split = '', credits = '', marksVal = '', code = '', title = '', gpVal = '') {
+      const semBlock = document.getElementById(semId);
+      if (!semBlock) return;
+      const tbody = semBlock.querySelector('.courseTableBody');
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50/85 transition-colors empty-course-row';
+
+      tr.innerHTML = `
+        <td class="px-3 py-2 text-slate-400 font-medium text-xs row-number text-center"></td>
+        <td class="px-3 py-2">
+          <input type="text" placeholder="Code" value="${code}" oninput="saveAndCalculate()" class="course-code w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none uppercase font-semibold text-center">
+        </td>
+        <td class="px-3 py-2">
+          <input type="text" placeholder="Title" value="${title}" oninput="saveAndCalculate()" class="course-title w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-left">
+        </td>
+        <td class="px-3 py-2">
+          <input type="text" placeholder="e.g. 1+1" value="${split}" oninput="parseCreditSplit(this)" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center">
+        </td>
+        <td class="px-3 py-2">
+          <input type="number" step="0.1" min="0" max="100" placeholder="0 - 100" value="${marksVal}" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center">
+        </td>
+        <td class="px-3 py-2">
+          <input type="number" step="0.01" min="0" max="10" placeholder="0 - 10" value="${gpVal}" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center">
+        </td>
+        <td class="px-3 py-2 font-semibold theme-text text-xs course-cp text-center">0.00</td>
+        <td class="px-3 py-2 text-center course-status">
+          <span class="text-[11px] font-medium text-slate-400">-</span>
+        </td>
+        <td class="px-3 py-2 text-center no-print">
+          <button onclick="removeCourseRow(this)" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+
+      if (split) {
+        parseCreditSplit(tr.querySelector('.course-split'));
+      }
+
+      if (marksVal !== '' && marksVal !== undefined) {
+        tr.querySelector('.course-marks').value = marksVal;
+        syncScoreInputs(tr, 'marks');
+      } else if (gpVal !== '' && gpVal !== undefined) {
+        tr.querySelector('.course-gp-input').value = gpVal;
+        syncScoreInputs(tr, 'gp');
+      }
+
+      updateRowNumbers(tbody);
+      lucide.createIcons();
+    }
+
+    function removeCourseRow(btn) {
+      const tr = btn.closest('tr');
+      const tbody = tr.parentNode;
+      tr.remove();
+      updateRowNumbers(tbody);
+      saveAndCalculate();
+    }
+
+    function updateRowNumbers(tbody) {
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach((row, index) => {
+        row.querySelector('.row-number').innerText = index + 1;
+      });
+    }
+
+    function parseCreditSplit(input) {
+      const val = input.value.trim();
+      const row = input.closest('tr');
+      if (val.includes('+')) {
+        const parts = val.split('+').map(p => parseFloat(p.trim()) || 0);
+        row.dataset.credits = parts.reduce((a, b) => a + b, 0);
+      } else {
+        row.dataset.credits = parseFloat(val) || '';
+      }
+      saveAndCalculate();
     }
 
     function syncScoreInputs(row, changedSource) {
@@ -477,217 +729,269 @@
           marksInput.value = '';
         }
       }
-      calculate();
+      saveAndCalculate();
     }
 
-    function addCourseRow(split = '', credits = '', marksVal = '', code = '', title = '') {
-      courseCount++;
-      const tbody = document.getElementById('courseTableBody');
-      const tr = document.createElement('tr');
-      tr.className = 'hover:bg-slate-50/85 transition-colors empty-course-row';
-      tr.id = `course-row-${courseCount}`;
-
-      tr.innerHTML = `
-        <td class="px-3 py-2 text-slate-400 font-medium text-xs row-number"></td>
-        <td class="px-3 py-2">
-          <input type="text" placeholder="Code" value="${code}" oninput="calculate()" class="course-code w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none">
-        </td>
-        <td class="px-3 py-2">
-          <input type="text" placeholder="Title" value="${title}" oninput="calculate()" class="course-title w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none">
-        </td>
-        <td class="px-3 py-2">
-          <input type="text" placeholder="e.g. 1+1" value="${split}" oninput="parseCreditSplit(this)" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none">
-        </td>
-        <td class="px-3 py-2">
-          <input type="number" step="0.1" min="0" max="100" placeholder="0 - 100" value="${marksVal}" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none">
-        </td>
-        <td class="px-3 py-2">
-          <input type="number" step="0.01" min="0" max="10" placeholder="0 - 10" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none">
-        </td>
-        <td class="px-3 py-2 font-semibold theme-text text-xs course-cp">0.00</td>
-        <td class="px-3 py-2 text-center course-status">
-          <span class="text-[11px] font-medium text-slate-400">-</span>
-        </td>
-        <td class="px-3 py-2 text-center no-print">
-          <button onclick="removeCourseRow('${tr.id}')" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </td>
-      `;
-
-      tbody.appendChild(tr);
-      if (marksVal !== '') {
-        syncScoreInputs(tr, 'marks');
-      }
-      updateRowNumbers();
-      lucide.createIcons();
+    function clearImportText() {
+      document.getElementById('bulkImportInput').value = '';
     }
 
-    function parseCreditSplit(input) {
-      const val = input.value.trim();
-      const row = input.closest('tr');
-      if (val.includes('+')) {
-        const parts = val.split('+').map(p => parseFloat(p.trim()) || 0);
-        row.dataset.credits = parts.reduce((a, b) => a + b, 0);
-      } else {
-        row.dataset.credits = parseFloat(val) || '';
-      }
-      calculate();
-    }
+    function processBulkImport() {
+      const text = document.getElementById('bulkImportInput').value;
+      if (!text.trim()) return;
 
-    function addPresetRow(splitText, totalCredits) {
-      addCourseRow(splitText, totalCredits, '');
-      const lastRow = document.querySelector('#courseTableBody tr:last-child');
-      if (lastRow) lastRow.dataset.credits = totalCredits;
-      calculate();
-    }
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      
+      let semCards = document.querySelectorAll('.semester-card');
+      let currentSemId = null;
+      let isFirstHeader = true;
 
-    function removeCourseRow(rowId) {
-      const row = document.getElementById(rowId);
-      if (row) {
-        row.remove();
-        updateRowNumbers();
-        calculate();
-      }
-    }
+      lines.forEach((line) => {
+        const semHeaderMatch = line.match(/^Sem(?:ester)?\.?\s*([0-9]+|[IVXLCDM]+)/i);
+        if (semHeaderMatch) {
+          const semNum = semHeaderMatch[1];
+          const formattedName = formatSemesterTitle(`Semester ${semNum}`);
+          
+          if (isFirstHeader && semCards.length === 1 && semCards[0].querySelectorAll('.courseTableBody tr').length === 0) {
+            currentSemId = semCards[0].id;
+            semCards[0].querySelector('.sem-title-input').value = formattedName;
+          } else {
+            currentSemId = addNewSemesterBlock(formattedName);
+          }
+          isFirstHeader = false;
+          return;
+        }
 
-    function updateRowNumbers() {
-      const rows = document.querySelectorAll('#courseTableBody tr');
-      rows.forEach((row, index) => {
-        row.querySelector('.row-number').innerText = index + 1;
+        const codeMatch = line.match(/([A-Z]{2,4}\s*\d{2,3})/i);
+        if (codeMatch) {
+          if (!currentSemId) {
+            if (semCards.length > 0 && semCards[semCards.length - 1].querySelectorAll('.courseTableBody tr').length === 0) {
+              currentSemId = semCards[semCards.length - 1].id;
+            } else {
+              currentSemId = addNewSemesterBlock();
+            }
+          }
+
+          const code = codeMatch[1].toUpperCase().trim();
+          let remainder = line.replace(codeMatch[0], '').trim();
+
+          let split = '';
+          const creditSplitMatch = remainder.match(/(\d\s*\+\s*\d)/);
+          if (creditSplitMatch) {
+            split = creditSplitMatch[1].replace(/\s+/g, '');
+            remainder = remainder.replace(creditSplitMatch[0], '').trim();
+          }
+
+          let gradeVal = '';
+          let marksVal = '';
+          const tokens = remainder.split(/\s+/).filter(t => t.length > 0);
+          if (tokens.length > 0) {
+            const lastToken = parseFloat(tokens[tokens.length - 1]);
+            if (!isNaN(lastToken)) {
+              tokens.pop();
+              if (lastToken <= 10) {
+                gradeVal = lastToken;
+              } else {
+                marksVal = lastToken;
+              }
+            }
+          }
+
+          let title = tokens.join(' ').replace(/^\.|\d+\./g, '').trim();
+          addCourseRowToSem(currentSemId, split, '', marksVal, code, title, gradeVal);
+        }
       });
+
+      saveAndCalculate();
     }
 
-    function resetAll() {
-      document.getElementById('courseTableBody').innerHTML = '';
-      document.getElementById('priorCredits').value = '';
-      document.getElementById('priorPoints').value = '';
-      document.getElementById('studentNameInput').value = '';
-      document.getElementById('studentIdInput').value = '';
-      document.getElementById('semesterInput').value = '';
-      document.getElementById('batchInput').value = '';
-      courseCount = 0;
-      for (let i = 0; i < 4; i++) {
-        addCourseRow();
+    function saveAndCalculate() {
+      calculateAll();
+      
+      const appData = {
+        name: document.getElementById('studentNameInput').value,
+        id: document.getElementById('studentIdInput').value,
+        degree: document.getElementById('degreeInput').value,
+        batch: document.getElementById('batchInput').value,
+        passMark: passMarkThreshold,
+        theme: document.getElementById('presetThemeSelect').value,
+        customColor: document.getElementById('customColorPicker').value,
+        semesters: []
+      };
+
+      document.querySelectorAll('.semester-card').forEach(semCard => {
+        const semTitle = semCard.querySelector('.sem-title-input').value;
+        const courses = [];
+        semCard.querySelectorAll('.courseTableBody tr').forEach(row => {
+          courses.push({
+            code: row.querySelector('.course-code').value,
+            title: row.querySelector('.course-title').value,
+            split: row.querySelector('.course-split').value,
+            marks: row.querySelector('.course-marks').value,
+            gp: row.querySelector('.course-gp-input').value
+          });
+        });
+        appData.semesters.push({ title: semTitle, courses: courses });
+      });
+
+      localStorage.setItem('tnau_data_' + currentProfileId, JSON.stringify(appData));
+    }
+
+    function loadProfileData(profileId) {
+      const saved = localStorage.getItem('tnau_data_' + profileId);
+      document.getElementById('semestersContainer').innerHTML = '';
+      semesterCounter = 0;
+
+      if (!saved) {
+        const profiles = getAllProfiles();
+        const info = profiles[profileId] || { name: '', id: '' };
+        document.getElementById('studentNameInput').value = info.name || '';
+        document.getElementById('studentIdInput').value = info.id || '';
+        document.getElementById('degreeInput').value = '';
+        document.getElementById('batchInput').value = '';
+        calculateAll();
+        return;
       }
-      calculate();
+
+      try {
+        const data = JSON.parse(saved);
+        document.getElementById('studentNameInput').value = data.name || '';
+        document.getElementById('studentIdInput').value = data.id || '';
+        document.getElementById('degreeInput').value = data.degree || '';
+        document.getElementById('batchInput').value = data.batch || '';
+        if (data.passMark) setPassMark(data.passMark);
+        if (data.theme) {
+          document.getElementById('presetThemeSelect').value = data.theme;
+          if (data.theme === 'custom' && data.customColor) {
+            document.getElementById('customColorPicker').value = data.customColor;
+            applyCustomColor(data.customColor);
+          } else {
+            applyPresetTheme(data.theme);
+          }
+        }
+
+        if (data.semesters && data.semesters.length > 0) {
+          data.semesters.forEach(sem => {
+            const semId = addNewSemesterBlock(sem.title);
+            if (sem.courses && sem.courses.length > 0) {
+              sem.courses.forEach(c => {
+                addCourseRowToSem(semId, c.split, '', c.marks, c.code, c.title, c.gp);
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.error('Error loading profile data:', e);
+      }
+
+      calculateAll();
     }
 
-    function calculate() {
+    function calculateAll() {
       const name = document.getElementById('studentNameInput').value.trim();
       const id = document.getElementById('studentIdInput').value.trim();
-      const sem = document.getElementById('semesterInput').value.trim();
+      const degree = document.getElementById('degreeInput').value.trim();
       const batch = document.getElementById('batchInput').value.trim();
 
-      // Update screen view
       document.getElementById('summaryName').innerText = name || '-';
       document.getElementById('summaryId').innerText = id || '-';
-      document.getElementById('summarySem').innerText = sem || '-';
+      document.getElementById('summaryDegree').innerText = degree || '-';
       document.getElementById('summaryBatch').innerText = batch || '-';
 
-      // Conditionally hide empty fields in print view
       document.getElementById('printRowName').style.display = name ? 'flex' : 'none';
       document.getElementById('printRowId').style.display = id ? 'flex' : 'none';
-      document.getElementById('printRowSem').style.display = sem ? 'flex' : 'none';
+      document.getElementById('printRowDegree').style.display = degree ? 'flex' : 'none';
       document.getElementById('printRowBatch').style.display = batch ? 'flex' : 'none';
 
-      // If all student fields are empty, hide the entire profile box
       const profileBox = document.getElementById('printProfileBox');
-      if (!name && !id && !sem && !batch) {
+      if (!name && !id && !degree && !batch) {
         profileBox.style.display = 'none';
       } else {
         profileBox.style.display = 'block';
       }
 
-      const rows = document.querySelectorAll('#courseTableBody tr');
-      let semCredits = 0;
-      let semPoints = 0;
-      let hasFailedCourse = false;
-      let hasValidData = false;
+      const semesterBlocks = document.querySelectorAll('.semester-card');
+      let cumulativeCredits = 0;
+      let cumulativePoints = 0;
 
-      rows.forEach((row) => {
-        const splitVal = row.querySelector('.course-split').value.trim();
-        const marks = parseFloat(row.querySelector('.course-marks').value);
-        const gp = parseFloat(row.querySelector('.course-gp-input').value);
-        const codeVal = row.querySelector('.course-code').value.trim();
-        const titleVal = row.querySelector('.course-title').value.trim();
+      const breakdownList = document.getElementById('semesterBreakdownList');
+      breakdownList.innerHTML = '';
 
-        let credits = parseFloat(row.dataset.credits);
-        if (isNaN(credits) || credits <= 0) {
-          if (splitVal.includes('+')) {
-            credits = splitVal.split('+').map(p => parseFloat(p.trim()) || 0).reduce((a, b) => a + b, 0);
-          } else {
-            credits = parseFloat(splitVal) || 0;
-          }
-        }
+      semesterBlocks.forEach((semCard) => {
+        const semTitle = semCard.querySelector('.sem-title-input').value.trim() || 'Semester';
+        const tbody = semCard.querySelector('.courseTableBody');
+        const rows = tbody.querySelectorAll('tr');
 
-        const cpCell = row.querySelector('.course-cp');
-        const statusCell = row.querySelector('.course-status');
+        let semCredits = 0;
+        let semPoints = 0;
 
-        // Check if row has active data
-        const isRowFilled = (codeVal !== '' || titleVal !== '' || splitVal !== '' || !isNaN(marks) || !isNaN(gp));
-        
-        if (isRowFilled) {
-          row.classList.remove('empty-course-row');
-        } else {
-          row.classList.add('empty-course-row');
-        }
+        rows.forEach((row) => {
+          const splitVal = row.querySelector('.course-split').value.trim();
+          const marks = parseFloat(row.querySelector('.course-marks').value);
+          const gp = parseFloat(row.querySelector('.course-gp-input').value);
+          const codeVal = row.querySelector('.course-code').value.trim();
+          const titleVal = row.querySelector('.course-title').value.trim();
 
-        if (credits > 0 && !isNaN(gp) && gp >= 0) {
-          hasValidData = true;
-          const cp = credits * gp;
-
-          cpCell.innerText = cp.toFixed(2);
-
-          if (marks >= passMarkThreshold) {
-            statusCell.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>';
-          } else {
-            statusCell.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>';
-            hasFailedCourse = true;
+          let credits = parseFloat(row.dataset.credits);
+          if (isNaN(credits) || credits <= 0) {
+            if (splitVal.includes('+')) {
+              credits = splitVal.split('+').map(p => parseFloat(p.trim()) || 0).reduce((a, b) => a + b, 0);
+            } else {
+              credits = parseFloat(splitVal) || 0;
+            }
           }
 
-          semCredits += credits;
-          semPoints += cp;
-        } else {
-          cpCell.innerText = '0.00';
-          statusCell.innerHTML = '<span class="text-[11px] font-medium text-slate-400">-</span>';
+          const cpCell = row.querySelector('.course-cp');
+          const statusCell = row.querySelector('.course-status');
+
+          const isRowFilled = (codeVal !== '' || titleVal !== '' || splitVal !== '' || !isNaN(marks) || !isNaN(gp));
+          
+          if (isRowFilled) {
+            row.classList.remove('empty-course-row');
+          } else {
+            row.classList.add('empty-course-row');
+          }
+
+          if (credits > 0 && !isNaN(gp) && gp >= 0) {
+            const cp = credits * gp;
+            cpCell.innerText = cp.toFixed(2);
+
+            if (marks >= passMarkThreshold) {
+              statusCell.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>';
+            } else {
+              statusCell.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>';
+            }
+
+            semCredits += credits;
+            semPoints += cp;
+          } else {
+            cpCell.innerText = '0.00';
+            statusCell.innerHTML = '<span class="text-[11px] font-medium text-slate-400">-</span>';
+          }
+        });
+
+        const semGPA = semCredits > 0 ? (semPoints / semCredits) : 0;
+        semCard.querySelector('.sem-gpa-badge').innerText = semGPA.toFixed(2);
+
+        cumulativeCredits += semCredits;
+        cumulativePoints += semPoints;
+
+        if (semCredits > 0) {
+          const item = document.createElement('div');
+          item.className = 'flex justify-between items-center py-1 border-b border-slate-50';
+          item.innerHTML = `
+            <span class="font-medium text-slate-600">${semTitle}</span>
+            <span class="font-bold theme-text">${semGPA.toFixed(2)} <span class="text-[10px] text-slate-400 font-normal">(${semCredits} Cr)</span></span>
+          `;
+          breakdownList.appendChild(item);
         }
       });
 
-      document.getElementById('semCreditsDisplay').innerText = semCredits.toFixed(1);
-      document.getElementById('semPointsDisplay').innerText = semPoints.toFixed(2);
-
-      let finalScore = 0;
-      let totalCreditsEval = semCredits;
-
-      if (currentMode === 'gpa') {
-        finalScore = semCredits > 0 ? (semPoints / semCredits) : 0;
-      } else {
-        const priorC = parseFloat(document.getElementById('priorCredits').value) || 0;
-        const priorP = parseFloat(document.getElementById('priorPoints').value) || 0;
-        document.getElementById('priorCreditsDisplay').innerText = priorC.toFixed(1);
-        document.getElementById('priorPointsDisplay').innerText = priorP.toFixed(2);
-
-        totalCreditsEval = semCredits + priorC;
-        const totalPointsEval = semPoints + priorP;
-        finalScore = totalCreditsEval > 0 ? (totalPointsEval / totalCreditsEval) : 0;
-      }
-
-      document.getElementById('totalCreditsDisplay').innerText = totalCreditsEval.toFixed(1);
-      document.getElementById('mainScoreDisplay').innerText = finalScore.toFixed(2);
-      document.getElementById('percentageDisplay').innerText = `Percentage: ${(finalScore * 10).toFixed(2)}%`;
-
-      const badge = document.getElementById('overallStatusBadge');
-      if (!hasValidData) {
-        badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600';
-        badge.innerText = 'Pending';
-      } else if (hasFailedCourse) {
-        badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700';
-        badge.innerText = 'RA / Arrears';
-      } else {
-        badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700';
-        badge.innerText = 'All Clear';
-      }
+      const overallOGPA = cumulativeCredits > 0 ? (cumulativePoints / cumulativeCredits) : 0;
+      document.getElementById('cumulativeOgpaDisplay').innerText = overallOGPA.toFixed(2);
+      document.getElementById('percentageDisplay').innerText = `Overall Percentage: ${(overallOGPA * 10).toFixed(2)}%`;
+      document.getElementById('totalCreditsDisplay').innerText = cumulativeCredits.toFixed(1);
+      document.getElementById('totalPointsDisplay').innerText = cumulativePoints.toFixed(2);
     }
 
     function printAppSummaryView() {
@@ -697,16 +1001,13 @@
     function copySummary() {
       const name = document.getElementById('summaryName').innerText;
       const id = document.getElementById('summaryId').innerText;
-      const sem = document.getElementById('summarySem').innerText;
-      const batch = document.getElementById('summaryBatch').innerText;
-      const scoreLabelText = currentMode === 'gpa' ? 'Semester GPA' : 'Cumulative OGPA';
-      const scoreVal = document.getElementById('mainScoreDisplay').innerText;
-      const totalC = document.getElementById('totalCreditsDisplay').innerText;
+      const ogpa = document.getElementById('cumulativeOgpaDisplay').innerText;
+      const credits = document.getElementById('totalCreditsDisplay').innerText;
 
-      const text = `--- TNAU Academic Summary ---\nStudent Name: ${name}\nID No: ${id}\nSemester: ${sem}\nBatch: ${batch}\n${scoreLabelText}: ${scoreVal}\nTotal Credits Evaluated: ${totalC}\nGenerated via TNAU GPA & OGPA Calculator`;
+      const text = `--- TNAU Multi-Semester Academic Summary ---\nStudent: ${name}\nID Number: ${id}\nCumulative OGPA: ${ogpa}\nTotal Credits Evaluated: ${credits}\nGenerated via TNAU GPA & OGPA Engine`;
 
       navigator.clipboard.writeText(text).then(() => {
-        alert('Summary text copied to clipboard successfully!');
+        alert('Academic summary copied to clipboard!');
       }).catch(err => {
         console.error('Failed to copy text: ', err);
       });
