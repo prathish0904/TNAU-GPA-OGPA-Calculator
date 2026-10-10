@@ -49,6 +49,9 @@
       table { font-size: 10px !important; }
       th, td { padding: 4px 6px !important; border-color: #cbd5e1 !important; }
       #resultsCard { position: static !important; border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
+      
+      /* Automatically hide empty course rows during print */
+      .empty-course-row { display: none !important; }
       @page { size: A4 portrait; margin: 10mm; }
     }
   </style>
@@ -481,7 +484,7 @@
       courseCount++;
       const tbody = document.getElementById('courseTableBody');
       const tr = document.createElement('tr');
-      tr.className = 'hover:bg-slate-50/80 transition-colors';
+      tr.className = 'hover:bg-slate-50/85 transition-colors empty-course-row';
       tr.id = `course-row-${courseCount}`;
 
       tr.innerHTML = `
@@ -582,7 +585,7 @@
       document.getElementById('summarySem').innerText = sem || '-';
       document.getElementById('summaryBatch').innerText = batch || '-';
 
-      // Conditionally hide empty fields in print/screen view
+      // Conditionally hide empty fields in print view
       document.getElementById('printRowName').style.display = name ? 'flex' : 'none';
       document.getElementById('printRowId').style.display = id ? 'flex' : 'none';
       document.getElementById('printRowSem').style.display = sem ? 'flex' : 'none';
@@ -606,6 +609,8 @@
         const splitVal = row.querySelector('.course-split').value.trim();
         const marks = parseFloat(row.querySelector('.course-marks').value);
         const gp = parseFloat(row.querySelector('.course-gp-input').value);
+        const codeVal = row.querySelector('.course-code').value.trim();
+        const titleVal = row.querySelector('.course-title').value.trim();
 
         let credits = parseFloat(row.dataset.credits);
         if (isNaN(credits) || credits <= 0) {
@@ -618,6 +623,15 @@
 
         const cpCell = row.querySelector('.course-cp');
         const statusCell = row.querySelector('.course-status');
+
+        // Check if row has active data
+        const isRowFilled = (codeVal !== '' || titleVal !== '' || splitVal !== '' || !isNaN(marks) || !isNaN(gp));
+        
+        if (isRowFilled) {
+          row.classList.remove('empty-course-row');
+        } else {
+          row.classList.add('empty-course-row');
+        }
 
         if (credits > 0 && !isNaN(gp) && gp >= 0) {
           hasValidData = true;
