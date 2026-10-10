@@ -78,6 +78,56 @@
 </head>
 <body id="appBody" class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
+  <!-- AUTHENTICATION MODAL -->
+  <div id="authModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-6">
+      <div class="flex justify-between items-start">
+        <div class="space-y-1">
+          <div class="inline-flex p-3 theme-card-light theme-text rounded-2xl mb-1">
+            <i data-lucide="lock" class="w-6 h-6"></i>
+          </div>
+          <h3 id="authModalTitle" class="text-lg font-bold text-slate-800">Account Login Required to Save</h3>
+          <p id="authModalSubtitle" class="text-xs text-slate-500">Sign in or create an account to securely save and store your student profiles.</p>
+        </div>
+        <button onclick="closeAuthModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Tab switchers -->
+      <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+        <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="py-2 rounded-lg bg-white text-slate-800 shadow-sm transition">Sign In</button>
+        <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="py-2 rounded-lg text-slate-500 hover:text-slate-800 transition">Create Account</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Username</label>
+          <input type="text" id="loginUsername" required placeholder="Enter your username" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Password</label>
+          <input type="password" id="loginPassword" required placeholder="Enter your password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <button type="submit" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm">Sign In & Save</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" onsubmit="handleRegisterSubmit(event)" class="space-y-4 text-xs hidden">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Choose Username</label>
+          <input type="text" id="regUsername" required placeholder="Create a username" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Choose Password</label>
+          <input type="password" id="regPassword" required placeholder="Create a secure password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <button type="submit" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm">Register Account & Save</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Header -->
   <header id="mainHeader" class="theme-header text-white shadow-lg no-print transition-colors duration-300">
     <div class="max-w-6xl mx-auto px-4 py-6">
@@ -121,34 +171,44 @@
     </div>
   </header>
 
-  <!-- Profile Switcher & SEO Banner -->
+  <!-- Account & Searchable Profile Switcher Bar -->
   <section class="max-w-6xl mx-auto mt-6 px-4 no-print">
     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
-        <h1 class="text-base font-bold text-slate-800 mb-1">
-          Multi-Semester TNAU Semester GPA & Cumulative OGPA Calculator
-        </h1>
-        <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
-          Records are permanently saved on this browser. Create or rename profiles for different students using Name or ID Number.
-        </p>
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 theme-card-light theme-text rounded-xl">
+          <i data-lucide="user-circle-2" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-slate-800">
+            Account Status: <span id="currentUsernameDisplay" class="theme-text font-extrabold">Guest Mode</span>
+          </h1>
+          <p class="text-slate-500 text-xs">
+            Search profiles by name/ID. Login is optional unless you want to store your records.
+          </p>
+        </div>
       </div>
+
+      <!-- Profile Search & Switcher Controls -->
       <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
         <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-medium">
-          <i data-lucide="users" class="w-4 h-4 text-slate-500"></i>
-          <span class="text-slate-500">Profile:</span>
-          <select id="profileSwitcher" onchange="switchProfile(this.value)" class="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[220px]">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+          <input type="text" id="profileSearchInput" placeholder="Search profiles..." oninput="filterProfileDropdown(this.value)" class="bg-transparent text-slate-800 outline-none w-28 text-xs font-medium">
+          <select id="profileSwitcher" onchange="switchActiveProfile(this.value)" class="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[150px]">
             <!-- Loaded dynamically -->
           </select>
         </div>
-        <button onclick="promptRenameProfile()" class="p-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-200 transition" title="Rename Current Profile">
-          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+        <button onclick="promptCreateNewProfile()" class="px-3 py-1.5 theme-card-light theme-text border rounded-xl text-xs font-semibold transition flex items-center gap-1" title="Add Student Profile">
+          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Add Profile
         </button>
-        <button onclick="createNewProfile()" class="px-3 py-1.5 theme-card-light theme-text border rounded-xl text-xs font-semibold transition flex items-center gap-1">
-          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> New Profile
-        </button>
-        <button onclick="deleteCurrentProfile()" class="p-2 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition" title="Delete Profile">
+        <button onclick="deleteActiveProfile()" class="p-2 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition" title="Delete Active Profile">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
         </button>
+        <div class="h-6 w-px bg-slate-200 mx-1"></div>
+        <div id="authActionContainer">
+          <button onclick="openAuthModal()" class="px-3 py-1.5 theme-btn-primary rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+            <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Login to Store
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -312,7 +372,12 @@
   <script>
     let semesterCounter = 0;
     let passMarkThreshold = 50; 
-    let currentProfileId = 'profile_default';
+    let activeUsername = null;
+    let activeProfileId = 'prof_default';
+    let guestProfiles = {
+      'prof_default': { name: 'Default Student', id: '' }
+    };
+    let guestDataStore = {};
 
     const themePresets = {
       emerald: { primary: '#065f46', hover: '#047857', light: '#ecfdf5', border: '#a7f3d0', text: '#065f46' },
@@ -322,20 +387,291 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-      initProfiles();
+      checkActiveSession();
       lucide.createIcons();
     });
 
-    function toRoman(input) {
-      if (typeof input === 'number') {
-        input = String(input);
+    function getUsersDB() {
+      const db = localStorage.getItem('tnau_users_db');
+      return db ? JSON.parse(db) : {};
+    }
+
+    function saveUsersDB(db) {
+      localStorage.setItem('tnau_users_db', JSON.stringify(db));
+    }
+
+    function checkActiveSession() {
+      const active = localStorage.getItem('tnau_active_user');
+      const users = getUsersDB();
+      if (active && users[active]) {
+        activeUsername = active;
+        document.getElementById('currentUsernameDisplay').innerText = active;
+        renderAccountAuthBar(true);
+      } else {
+        activeUsername = null;
+        document.getElementById('currentUsernameDisplay').innerText = 'Guest Mode';
+        renderAccountAuthBar(false);
       }
+      initProfilesList();
+    }
+
+    function renderAccountAuthBar(isLoggedIn) {
+      const container = document.getElementById('authActionContainer');
+      if (isLoggedIn) {
+        container.innerHTML = `
+          <button onclick="triggerLogout()" class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1.5">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Logout
+          </button>
+        `;
+      } else {
+        container.innerHTML = `
+          <button onclick="openAuthModal()" class="px-3 py-1.5 theme-btn-primary rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+            <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Login to Store
+          </button>
+        `;
+      }
+      lucide.createIcons();
+    }
+
+    function openAuthModal() {
+      document.getElementById('authModal').classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('authModal').classList.add('hidden');
+    }
+
+    function switchAuthTab(tab) {
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const loginBtn = document.getElementById('tabLoginBtn');
+      const registerBtn = document.getElementById('tabRegisterBtn');
+      const title = document.getElementById('authModalTitle');
+      const subtitle = document.getElementById('authModalSubtitle');
+
+      if (tab === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        loginBtn.className = 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition';
+        registerBtn.className = 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
+        title.innerText = 'Account Login Required to Save';
+        subtitle.innerText = 'Sign in with your account to securely save and store your student profiles.';
+      } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        registerBtn.className = 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition';
+        loginBtn.className = 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
+        title.innerText = 'Create New Account';
+        subtitle.innerText = 'Register an account to manage and store multiple student profiles securely.';
+      }
+    }
+
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const pass = document.getElementById('loginPassword').value;
+
+      const users = getUsersDB();
+      if (!users[username] || users[username].password !== pass) {
+        alert('Invalid username or password. Please try again.');
+        return;
+      }
+
+      localStorage.setItem('tnau_active_user', username);
+      activeUsername = username;
+      closeAuthModal();
+      checkActiveSession();
+    }
+
+    function handleRegisterSubmit(event) {
+      event.preventDefault();
+      const username = document.getElementById('regUsername').value.trim();
+      const pass = document.getElementById('regPassword').value;
+
+      if (!username || !pass) return;
+
+      const users = getUsersDB();
+      if (users[username]) {
+        alert('Username already exists. Please choose a different one or sign in.');
+        return;
+      }
+
+      // Migrate guest profiles into the new account if any exist
+      users[username] = { 
+        password: pass,
+        profiles: guestProfiles
+      };
+      saveUsersDB(users);
+
+      for (const pid in guestDataStore) {
+        localStorage.setItem(`tnau_data_${username}_${pid}`, guestDataStore[pid]);
+      }
+
+      localStorage.setItem('tnau_active_user', username);
+      activeUsername = username;
+      closeAuthModal();
+      checkActiveSession();
+    }
+
+    function triggerLogout() {
+      if (confirm('Are you sure you want to log out?')) {
+        localStorage.removeItem('tnau_active_user');
+        activeUsername = null;
+        document.getElementById('loginUsername').value = '';
+        document.getElementById('loginPassword').value = '';
+        checkActiveSession();
+      }
+    }
+
+    function getAccountProfiles() {
+      if (activeUsername) {
+        const users = getUsersDB();
+        if (users[activeUsername]) {
+          if (!users[activeUsername].profiles || Object.keys(users[activeUsername].profiles).length === 0) {
+            users[activeUsername].profiles = { 'prof_default': { name: activeUsername, id: '' } };
+            saveUsersDB(users);
+          }
+          return users[activeUsername].profiles;
+        }
+      }
+      return guestProfiles;
+    }
+
+    function initProfilesList(filterQuery = '') {
+      const profiles = getAccountProfiles();
+      const switcher = document.getElementById('profileSwitcher');
+      switcher.innerHTML = '';
+
+      let foundActive = false;
+      let matchCount = 0;
+
+      for (const [pid, info] of Object.entries(profiles)) {
+        let label = info.name || info.id || 'Unnamed Student';
+        if (info.name && info.id) label = `${info.name} (${info.id})`;
+
+        if (filterQuery && !label.toLowerCase().includes(filterQuery.toLowerCase())) {
+          continue;
+        }
+
+        matchCount++;
+        const opt = document.createElement('option');
+        opt.value = pid;
+        opt.innerText = label;
+        switcher.appendChild(opt);
+        if (pid === activeProfileId) foundActive = true;
+      }
+
+      if (matchCount === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.innerText = 'No match found';
+        switcher.appendChild(opt);
+        return;
+      }
+
+      if (!foundActive) {
+        activeProfileId = switcher.options[0].value;
+      }
+      switcher.value = activeProfileId;
+      loadProfileData(activeProfileId);
+    }
+
+    function filterProfileDropdown(query) {
+      initProfilesList(query);
+    }
+
+    function switchActiveProfile(profileId) {
+      if (!profileId) return;
+      activeProfileId = profileId;
+      loadProfileData(profileId);
+    }
+
+    function promptCreateNewProfile() {
+      const inputVal = prompt('Enter Student Name or ID Number for new profile:');
+      if (!inputVal || !inputVal.trim()) return;
+
+      const newPid = 'prof_' + Date.now();
+      const cleanVal = inputVal.trim();
+      const isLikelyId = /^[A-Za-z0-9\-\/]+$/.test(cleanVal) && cleanVal.length > 3 && /\d/.test(cleanVal);
+
+      const newProfObj = {
+        name: isLikelyId ? '' : cleanVal,
+        id: isLikelyId ? cleanVal : ''
+      };
+
+      if (activeUsername) {
+        const users = getUsersDB();
+        if (!users[activeUsername].profiles) users[activeUsername].profiles = {};
+        users[activeUsername].profiles[newPid] = newProfObj;
+        saveUsersDB(users);
+      } else {
+        guestProfiles[newPid] = newProfObj;
+      }
+
+      activeProfileId = newPid;
+      document.getElementById('profileSearchInput').value = '';
+      initProfilesList();
+    }
+
+    function deleteActiveProfile() {
+      const profiles = getAccountProfiles();
+      const keys = Object.keys(profiles);
+
+      if (keys.length <= 1) {
+        alert('You must maintain at least one student profile.');
+        return;
+      }
+
+      if (confirm('Are you sure you want to delete this student profile and its records?')) {
+        if (activeUsername) {
+          const users = getUsersDB();
+          localStorage.removeItem(`tnau_data_${activeUsername}_${activeProfileId}`);
+          delete users[activeUsername].profiles[activeProfileId];
+          saveUsersDB(users);
+        } else {
+          delete guestDataStore[activeProfileId];
+          delete guestProfiles[activeProfileId];
+        }
+
+        activeProfileId = Object.keys(getAccountProfiles())[0];
+        initProfilesList();
+      }
+    }
+
+    function handleProfileDetailInput() {
+      const nameVal = document.getElementById('studentNameInput').value;
+      const idVal = document.getElementById('studentIdInput').value;
+
+      if (activeUsername) {
+        const users = getUsersDB();
+        if (users[activeUsername] && users[activeUsername].profiles[activeProfileId]) {
+          users[activeUsername].profiles[activeProfileId].name = nameVal.trim();
+          users[activeUsername].profiles[activeProfileId].id = idVal.trim();
+          saveUsersDB(users);
+        }
+      } else {
+        if (guestProfiles[activeProfileId]) {
+          guestProfiles[activeProfileId].name = nameVal.trim();
+          guestProfiles[activeProfileId].id = idVal.trim();
+        }
+      }
+
+      const switcher = document.getElementById('profileSwitcher');
+      const opt = switcher.querySelector(`option[value="${activeProfileId}"]`);
+      if (opt) {
+        let label = nameVal.trim() || idVal.trim() || 'Unnamed Student';
+        if (nameVal.trim() && idVal.trim()) label = `${nameVal.trim()} (${idVal.trim()})`;
+        opt.innerText = label;
+      }
+
+      saveAndCalculate();
+    }
+
+    function toRoman(input) {
+      if (typeof input === 'number') input = String(input);
       if (!input) return '';
       input = input.trim().toUpperCase();
-
-      if (/^[IVXLCDM]+$/.test(input)) {
-        return input;
-      }
+      if (/^[IVXLCDM]+$/.test(input)) return input;
 
       const cleaned = input.replace(/\D/g, '');
       let num = parseInt(cleaned, 10);
@@ -356,158 +692,9 @@
       if (!inputTitle) return '';
       const match = inputTitle.match(/(?:sem(?:ester)?\.?\s*)?([0-9]+|[IVXLCDM]+)/i);
       if (match && match[1]) {
-        const romanVal = toRoman(match[1]);
-        return `Semester ${romanVal}`;
+        return `Semester ${toRoman(match[1])}`;
       }
       return inputTitle;
-    }
-
-    function getAllProfiles() {
-      const list = localStorage.getItem('tnau_profiles_list');
-      if (!list) {
-        const defaultProfiles = { 'profile_default': { name: 'Default Student', id: '' } };
-        localStorage.setItem('tnau_profiles_list', JSON.stringify(defaultProfiles));
-        return defaultProfiles;
-      }
-      const parsed = JSON.parse(list);
-      // Ensure backward compatibility with string-based profile maps
-      for (const key in parsed) {
-        if (typeof parsed[key] === 'string') {
-          parsed[key] = { name: parsed[key], id: '' };
-        }
-      }
-      return parsed;
-    }
-
-    function initProfiles() {
-      const profiles = getAllProfiles();
-      const switcher = document.getElementById('profileSwitcher');
-      switcher.innerHTML = '';
-
-      let foundActive = false;
-      for (const [id, info] of Object.entries(profiles)) {
-        const opt = document.createElement('option');
-        opt.value = id;
-        
-        let label = info.name || info.id || 'Unnamed Profile';
-        if (info.name && info.id) {
-          label = `${info.name} (${info.id})`;
-        }
-        
-        opt.innerText = label;
-        switcher.appendChild(opt);
-        if (id === currentProfileId) foundActive = true;
-      }
-
-      if (!foundActive) {
-        currentProfileId = Object.keys(profiles)[0];
-      }
-      switcher.value = currentProfileId;
-      loadProfileData(currentProfileId);
-    }
-
-    function switchProfile(profileId) {
-      currentProfileId = profileId;
-      loadProfileData(profileId);
-    }
-
-    function createNewProfile() {
-      const inputVal = prompt('Enter Student Name or ID Number for the new profile:');
-      if (!inputVal || !inputVal.trim()) return;
-
-      const newId = 'profile_' + Date.now();
-      const profiles = getAllProfiles();
-      
-      const cleanVal = inputVal.trim();
-      const isLikelyId = /^[A-Za-z0-9\-\/]+$/.test(cleanVal) && cleanVal.length > 3 && /\d/.test(cleanVal);
-
-      profiles[newId] = {
-        name: isLikelyId ? '' : cleanVal,
-        id: isLikelyId ? cleanVal : ''
-      };
-
-      localStorage.setItem('tnau_profiles_list', JSON.stringify(profiles));
-
-      currentProfileId = newId;
-      
-      document.getElementById('studentNameInput').value = profiles[newId].name;
-      document.getElementById('studentIdInput').value = profiles[newId].id;
-      document.getElementById('degreeInput').value = '';
-      document.getElementById('batchInput').value = '';
-      document.getElementById('semestersContainer').innerHTML = '';
-      semesterCounter = 0;
-
-      initProfiles();
-      saveAndCalculate();
-    }
-
-    function promptRenameProfile() {
-      const profiles = getAllProfiles();
-      const current = profiles[currentProfileId] || { name: 'Unnamed Student', id: '' };
-      
-      const newName = prompt('Update Student Name:', current.name || '');
-      const newStudentId = prompt('Update Student ID Number:', current.id || '');
-
-      if (newName !== null || newStudentId !== null) {
-        if (newName !== null) current.name = newName.trim();
-        if (newStudentId !== null) current.id = newStudentId.trim();
-
-        document.getElementById('studentNameInput').value = current.name;
-        document.getElementById('studentIdInput').value = current.id;
-        
-        profiles[currentProfileId] = current;
-        localStorage.setItem('tnau_profiles_list', JSON.stringify(profiles));
-        initProfiles();
-        saveAndCalculate();
-      }
-    }
-
-    function handleProfileDetailInput() {
-      const nameVal = document.getElementById('studentNameInput').value;
-      const idVal = document.getElementById('studentIdInput').value;
-      
-      updateProfileMetadata(nameVal, idVal);
-      saveAndCalculate();
-    }
-
-    function updateProfileMetadata(newName, newId) {
-      const profiles = getAllProfiles();
-      if (profiles[currentProfileId]) {
-        profiles[currentProfileId] = {
-          name: newName !== undefined ? newName.trim() : (profiles[currentProfileId].name || ''),
-          id: newId !== undefined ? newId.trim() : (profiles[currentProfileId].id || '')
-        };
-        localStorage.setItem('tnau_profiles_list', JSON.stringify(profiles));
-        
-        const switcher = document.getElementById('profileSwitcher');
-        const opt = switcher.querySelector(`option[value="${currentProfileId}"]`);
-        if (opt) {
-          const info = profiles[currentProfileId];
-          let label = info.name || info.id || 'Unnamed Profile';
-          if (info.name && info.id) {
-            label = `${info.name} (${info.id})`;
-          }
-          opt.innerText = label;
-        }
-      }
-    }
-
-    function deleteCurrentProfile() {
-      const profiles = getAllProfiles();
-      const keys = Object.keys(profiles);
-      if (keys.length <= 1) {
-        alert('You must keep at least one student profile.');
-        return;
-      }
-
-      if (confirm('Are you sure you want to delete this profile and all its saved semester records?')) {
-        localStorage.removeItem('tnau_data_' + currentProfileId);
-        delete profiles[currentProfileId];
-        localStorage.setItem('tnau_profiles_list', JSON.stringify(profiles));
-
-        currentProfileId = Object.keys(profiles)[0];
-        initProfiles();
-      }
     }
 
     function setPassMark(val) {
@@ -806,6 +993,7 @@
     }
 
     function saveAndCalculate() {
+      if (!activeProfileId) return;
       calculateAll();
       
       const appData = {
@@ -834,29 +1022,42 @@
         appData.semesters.push({ title: semTitle, courses: courses });
       });
 
-      localStorage.setItem('tnau_data_' + currentProfileId, JSON.stringify(appData));
+      const jsonStr = JSON.stringify(appData);
+      if (activeUsername) {
+        localStorage.setItem(`tnau_data_${activeUsername}_${activeProfileId}`, jsonStr);
+      } else {
+        guestDataStore[activeProfileId] = jsonStr;
+      }
     }
 
     function loadProfileData(profileId) {
-      const saved = localStorage.getItem('tnau_data_' + profileId);
+      let saved = null;
+      if (activeUsername) {
+        saved = localStorage.getItem(`tnau_data_${activeUsername}_${profileId}`);
+      } else {
+        saved = guestDataStore[profileId];
+      }
+
       document.getElementById('semestersContainer').innerHTML = '';
       semesterCounter = 0;
 
+      const profiles = getAccountProfiles();
+      const currentInfo = profiles[profileId] || { name: '', id: '' };
+
       if (!saved) {
-        const profiles = getAllProfiles();
-        const info = profiles[profileId] || { name: '', id: '' };
-        document.getElementById('studentNameInput').value = info.name || '';
-        document.getElementById('studentIdInput').value = info.id || '';
+        document.getElementById('studentNameInput').value = currentInfo.name || '';
+        document.getElementById('studentIdInput').value = currentInfo.id || '';
         document.getElementById('degreeInput').value = '';
         document.getElementById('batchInput').value = '';
+        addNewSemesterBlock('Semester I');
         calculateAll();
         return;
       }
 
       try {
         const data = JSON.parse(saved);
-        document.getElementById('studentNameInput').value = data.name || '';
-        document.getElementById('studentIdInput').value = data.id || '';
+        document.getElementById('studentNameInput').value = data.name || currentInfo.name || '';
+        document.getElementById('studentIdInput').value = data.id || currentInfo.id || '';
         document.getElementById('degreeInput').value = data.degree || '';
         document.getElementById('batchInput').value = data.batch || '';
         if (data.passMark) setPassMark(data.passMark);
@@ -879,6 +1080,8 @@
               });
             }
           });
+        } else {
+          addNewSemesterBlock('Semester I');
         }
       } catch (e) {
         console.error('Error loading profile data:', e);
