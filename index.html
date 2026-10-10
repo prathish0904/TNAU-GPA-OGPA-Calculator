@@ -41,18 +41,8 @@
 </head>
 <body id="appBody" class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
-  <!-- SEO Description Banner -->
-  <section class="max-w-6xl mx-auto mt-6 px-4 no-print">
-    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-      <h1 class="text-xl font-bold text-slate-800 mb-2">TNAU GPA & OGPA Calculator</h1>
-      <p class="text-slate-600 text-sm leading-relaxed">
-        Welcome to the <strong>TNAU GPA and OGPA Calculator</strong> designed by a student for students of Tamil Nadu Agricultural University (TNAU). Calculate single-semester or cumulative semester GPA simply by entering the course code and marks. The system automatically calculates GPA and OGPA for free with an option to print the output for all TNAU courses.
-      </p>
-    </div>
-  </section>
-
   <!-- Header -->
-  <header id="mainHeader" class="theme-header text-white shadow-lg no-print transition-colors duration-300 mt-4">
+  <header id="mainHeader" class="theme-header text-white shadow-lg no-print transition-colors duration-300">
     <div class="max-w-6xl mx-auto px-4 py-6">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -98,6 +88,21 @@
       </div>
     </div>
   </header>
+
+  <!-- SEO Description Banner (Placed right after Header) -->
+  <section class="max-w-6xl mx-auto mt-6 px-4 no-print">
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+      <h1 class="text-base font-bold text-slate-800 mb-1">
+        Instant TNAU Semester GPA & Cumulative OGPA Calculator
+      </h1>
+      <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
+        Welcome to the <strong>TNAU GPA and OGPA Calculator</strong> designed by a student for students of 
+        <strong>Tamil Nadu Agricultural University (TNAU)</strong>. Calculate single-semester or 
+        cumulative semester GPA simply by entering the course code and marks. The system automatically 
+        calculates GPA and OGPA for free with an option to print the output for all TNAU courses.
+      </p>
+    </div>
+  </section>
 
   <!-- App Main Content Container -->
   <main id="appMainContainer" class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
