@@ -12,6 +12,28 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBZqqMw39EvqjaB4_SxrpkLDC_gQ1NdLvE",
+      authDomain: "tnau-gpa-and-ogpa-engine.firebaseapp.com",
+      projectId: "tnau-gpa-and-ogpa-engine",
+      storageBucket: "tnau-gpa-and-ogpa-engine.firebasestorage.app",
+      messagingSenderId: "473229147697",
+      appId: "1:473229147697:web:36257d7cfa2e6859825f10",
+      measurementId: "G-VGLD0XQ0EH"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.firebaseApp = { auth, db, doc, setDoc, getDoc, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged };
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
@@ -45,7 +67,6 @@
       main { padding: 0 !important; display: block !important; width: 100% !important; max-width: none !important; }
       .lg\:col-span-8, .lg\:col-span-4 { width: 100% !important; margin-bottom: 10px !important; }
       
-      /* Prevent semester cards from breaking across pages */
       .semester-card {
         break-inside: avoid !important;
         page-break-inside: avoid !important;
@@ -54,22 +75,19 @@
       
       table { font-size: 9px !important; width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; }
       
-      /* Rigid PDF Print Column Widths & Wrapped Centered Headers */
-      th:nth-child(1), td:nth-child(1) { width: 5% !important; text-align: center !important; }  /* # */
-      th:nth-child(2), td:nth-child(2) { width: 16% !important; text-align: center !important; } /* Course Code */
-      th:nth-child(3), td:nth-child(3) { width: 37% !important; text-align: left !important; }   /* Course Title */
-      th:nth-child(4), td:nth-child(4) { width: 12% !important; text-align: center !important; } /* Credit Hours */
-      th:nth-child(5), td:nth-child(5) { width: 10% !important; text-align: center !important; } /* Marks */
-      th:nth-child(6), td:nth-child(6) { width: 9% !important; text-align: center !important; }  /* Grade Point */
-      th:nth-child(7), td:nth-child(7) { width: 11% !important; text-align: center !important; } /* Credit Point */
-      th:nth-child(8), td:nth-child(8) { display: none !important; } /* Status hidden */
-      th:nth-child(9), td:nth-child(9) { display: none !important; } /* Delete action hidden */
+      th:nth-child(1), td:nth-child(1) { width: 5% !important; text-align: center !important; }
+      th:nth-child(2), td:nth-child(2) { width: 16% !important; text-align: center !important; }
+      th:nth-child(3), td:nth-child(3) { width: 37% !important; text-align: left !important; }
+      th:nth-child(4), td:nth-child(4) { width: 12% !important; text-align: center !important; }
+      th:nth-child(5), td:nth-child(5) { width: 10% !important; text-align: center !important; }
+      th:nth-child(6), td:nth-child(6) { width: 9% !important; text-align: center !important; }
+      th:nth-child(7), td:nth-child(7) { width: 11% !important; text-align: center !important; }
+      th:nth-child(8), td:nth-child(8) { display: none !important; }
+      th:nth-child(9), td:nth-child(9) { display: none !important; }
 
       th { white-space: normal !important; word-break: break-word !important; line-height: 1.2 !important; text-align: center !important; vertical-align: middle !important; }
       th, td { padding: 5px 6px !important; border-color: #cbd5e1 !important; }
-      
       input, select, textarea { border: none !important; background: transparent !important; padding: 0 !important; font-size: 9px !important; width: 100% !important; word-break: break-word !important; }
-      
       #resultsCard { position: static !important; border: 1px solid #cbd5e1 !important; box-shadow: none !important; width: 100% !important; break-inside: avoid !important; page-break-inside: avoid !important; }
       .empty-course-row { display: none !important; }
       @page { size: A4 portrait; margin: 10mm; }
@@ -84,46 +102,43 @@
       <div class="flex justify-between items-start">
         <div class="space-y-1">
           <div class="inline-flex p-3 theme-card-light theme-text rounded-2xl mb-1">
-            <i data-lucide="lock" class="w-6 h-6"></i>
+            <i data-lucide="cloud" class="w-6 h-6"></i>
           </div>
-          <h3 id="authModalTitle" class="text-lg font-bold text-slate-800">Account Login Required to Save</h3>
-          <p id="authModalSubtitle" class="text-xs text-slate-500">Sign in or create an account to securely save and store your student profiles.</p>
+          <h3 id="authModalTitle" class="text-lg font-bold text-slate-800">Cloud Login Required to Store</h3>
+          <p id="authModalSubtitle" class="text-xs text-slate-500">Sign in with email and password to securely sync your profiles across devices.</p>
         </div>
         <button onclick="closeAuthModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <!-- Tab switchers -->
       <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
         <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="py-2 rounded-lg bg-white text-slate-800 shadow-sm transition">Sign In</button>
         <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="py-2 rounded-lg text-slate-500 hover:text-slate-800 transition">Create Account</button>
       </div>
 
-      <!-- Login Form -->
       <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4 text-xs">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Username</label>
-          <input type="text" id="loginUsername" required placeholder="Enter your username" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+          <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
+          <input type="email" id="loginEmail" required placeholder="name@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Password</label>
           <input type="password" id="loginPassword" required placeholder="Enter your password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
         </div>
-        <button type="submit" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm">Sign In & Save</button>
+        <button type="submit" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm">Sign In & Sync</button>
       </form>
 
-      <!-- Register Form -->
       <form id="registerForm" onsubmit="handleRegisterSubmit(event)" class="space-y-4 text-xs hidden">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Choose Username</label>
-          <input type="text" id="regUsername" required placeholder="Create a username" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+          <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
+          <input type="email" id="regEmail" required placeholder="name@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Choose Password</label>
+          <label class="block font-semibold text-slate-700 mb-1">Password (6+ chars)</label>
           <input type="password" id="regPassword" required placeholder="Create a secure password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
         </div>
-        <button type="submit" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm">Register Account & Save</button>
+        <button type="submit" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm">Register Account & Sync</button>
       </form>
     </div>
   </div>
@@ -180,21 +195,19 @@
         </div>
         <div>
           <h1 class="text-sm font-bold text-slate-800">
-            Account Status: <span id="currentUsernameDisplay" class="theme-text font-extrabold">Guest Mode</span>
+            Cloud Account: <span id="currentUserDisplay" class="theme-text font-extrabold">Guest Mode</span>
           </h1>
           <p class="text-slate-500 text-xs">
-            Search profiles by name/ID. Login is optional unless you want to store your records.
+            Search profiles by name/ID. Login with cloud account to sync data across devices.
           </p>
         </div>
       </div>
 
-      <!-- Profile Search & Switcher Controls -->
       <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
         <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-medium">
           <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
           <input type="text" id="profileSearchInput" placeholder="Search profiles..." oninput="filterProfileDropdown(this.value)" class="bg-transparent text-slate-800 outline-none w-28 text-xs font-medium">
           <select id="profileSwitcher" onchange="switchActiveProfile(this.value)" class="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[150px]">
-            <!-- Loaded dynamically -->
           </select>
         </div>
         <button onclick="promptCreateNewProfile()" class="px-3 py-1.5 theme-card-light theme-text border rounded-xl text-xs font-semibold transition flex items-center gap-1" title="Add Student Profile">
@@ -206,7 +219,7 @@
         <div class="h-6 w-px bg-slate-200 mx-1"></div>
         <div id="authActionContainer">
           <button onclick="openAuthModal()" class="px-3 py-1.5 theme-btn-primary rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-            <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Login to Store
+            <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Login to Cloud
           </button>
         </div>
       </div>
@@ -216,10 +229,7 @@
   <!-- App Main Content Container -->
   <main id="appMainContainer" class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
     
-    <!-- Left Column: Input Form & Course Table -->
     <div class="lg:col-span-8 space-y-6">
-
-      <!-- STUDENT DETAILS CARD -->
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div class="flex items-center gap-2 border-b border-slate-100 pb-3 no-print">
           <i data-lucide="user-check" class="w-5 h-5 theme-text"></i>
@@ -248,7 +258,6 @@
         </div>
       </div>
 
-      <!-- Bulk Text Importer Box -->
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 no-print">
         <div class="flex items-center gap-2 border-b border-slate-100 pb-2.5">
           <i data-lucide="clipboard-list" class="w-5 h-5 theme-text"></i>
@@ -265,25 +274,17 @@
         </div>
       </div>
 
-      <!-- Dynamic Semester Blocks Container -->
-      <div id="semestersContainer" class="space-y-6">
-        <!-- Dynamic Semesters rendered here -->
-      </div>
+      <div id="semestersContainer" class="space-y-6"></div>
 
-      <!-- Controls to Add Semesters -->
       <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm no-print">
         <span class="text-xs font-semibold text-slate-600">Need to add a semester?</span>
         <button onclick="addNewSemesterBlock(); saveAndCalculate();" class="px-4 py-2 theme-card-light theme-text border rounded-xl text-xs font-bold hover:opacity-80 transition flex items-center gap-1.5">
           <i data-lucide="plus-circle" class="w-4 h-4"></i> Add New Semester
         </button>
       </div>
-
     </div>
 
-    <!-- Right Column: Summary & Controls -->
     <div class="lg:col-span-4 space-y-6">
-
-      <!-- Overall Cumulative Results Summary Card -->
       <div id="resultsCard" class="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-6 sticky top-6">
         <div class="flex items-center justify-between border-b border-slate-100 pb-4">
           <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
@@ -294,7 +295,6 @@
           </span>
         </div>
 
-        <!-- Profile Summary Bar -->
         <div id="printProfileBox" class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
           <div id="printRowName" class="flex justify-between">
             <span class="text-slate-500">Student Name:</span>
@@ -314,22 +314,17 @@
           </div>
         </div>
 
-        <!-- Main OGPA Score Display -->
         <div id="scoreBox" class="theme-header rounded-2xl p-6 text-white text-center shadow-inner relative overflow-hidden transition-colors duration-300">
           <p class="text-xs font-medium uppercase tracking-wider text-white/80">Cumulative OGPA</p>
           <div class="text-4xl font-extrabold tracking-tight my-2" id="cumulativeOgpaDisplay">0.00</div>
           <p class="text-xs text-white/90" id="percentageDisplay">Overall Percentage: 0.00%</p>
         </div>
 
-        <!-- Individual Semester GPA Breakdown Table -->
         <div class="space-y-2">
           <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-1">Semester Breakdown</h4>
-          <div id="semesterBreakdownList" class="space-y-1.5 text-xs">
-            <!-- Rendered dynamically -->
-          </div>
+          <div id="semesterBreakdownList" class="space-y-1.5 text-xs"></div>
         </div>
 
-        <!-- Metrics Breakdown -->
         <div class="space-y-3 text-xs divide-y divide-slate-100 pt-2 border-t border-slate-200">
           <div class="flex justify-between pt-1">
             <span class="text-slate-500">Total Evaluated Credits:</span>
@@ -341,7 +336,6 @@
           </div>
         </div>
 
-        <!-- PRINT AND COPY BUTTONS -->
         <div class="pt-2 flex flex-col gap-2 no-print">
           <button onclick="printAppSummaryView()" class="w-full py-2.5 px-3 theme-btn-primary text-xs font-semibold rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
             <i data-lucide="printer" class="w-4 h-4"></i> Print Summary Report
@@ -351,12 +345,9 @@
           </button>
         </div>
       </div>
-
     </div>
-
   </main>
 
-  <!-- Footer -->
   <footer id="mainFooter" class="bg-white border-t border-slate-200 py-6 mt-auto text-center text-xs text-slate-500 no-print">
     <div class="max-w-6xl mx-auto px-4 flex flex-col items-center gap-2">
       <div class="inline-flex items-center gap-2 px-3 py-1.5 theme-card-light theme-text rounded-full font-medium text-xs border">
@@ -368,16 +359,14 @@
     </div>
   </footer>
 
-  <!-- Application Logic -->
   <script>
     let semesterCounter = 0;
     let passMarkThreshold = 50; 
-    let activeUsername = null;
+    let currentUser = null;
     let activeProfileId = 'prof_default';
-    let guestProfiles = {
-      'prof_default': { name: 'Default Student', id: '' }
+    let cloudDataStore = {
+      'prof_default': { name: 'Default Student', id: '', semesters: [] }
     };
-    let guestDataStore = {};
 
     const themePresets = {
       emerald: { primary: '#065f46', hover: '#047857', light: '#ecfdf5', border: '#a7f3d0', text: '#065f46' },
@@ -387,35 +376,33 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-      checkActiveSession();
+      const checkInterval = setInterval(() => {
+        if (window.firebaseApp) {
+          clearInterval(checkInterval);
+          initFirebaseListener();
+        }
+      }, 100);
       lucide.createIcons();
     });
 
-    function getUsersDB() {
-      const db = localStorage.getItem('tnau_users_db');
-      return db ? JSON.parse(db) : {};
+    function initFirebaseListener() {
+      const { auth, onAuthStateChanged } = window.firebaseApp;
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          currentUser = user;
+          document.getElementById('currentUserDisplay').innerText = user.email;
+          renderAuthBar(true);
+          await fetchUserDataFromCloud(user.uid);
+        } else {
+          currentUser = null;
+          document.getElementById('currentUserDisplay').innerText = 'Guest Mode';
+          renderAuthBar(false);
+          initProfilesList();
+        }
+      });
     }
 
-    function saveUsersDB(db) {
-      localStorage.setItem('tnau_users_db', JSON.stringify(db));
-    }
-
-    function checkActiveSession() {
-      const active = localStorage.getItem('tnau_active_user');
-      const users = getUsersDB();
-      if (active && users[active]) {
-        activeUsername = active;
-        document.getElementById('currentUsernameDisplay').innerText = active;
-        renderAccountAuthBar(true);
-      } else {
-        activeUsername = null;
-        document.getElementById('currentUsernameDisplay').innerText = 'Guest Mode';
-        renderAccountAuthBar(false);
-      }
-      initProfilesList();
-    }
-
-    function renderAccountAuthBar(isLoggedIn) {
+    function renderAuthBar(isLoggedIn) {
       const container = document.getElementById('authActionContainer');
       if (isLoggedIn) {
         container.innerHTML = `
@@ -426,20 +413,15 @@
       } else {
         container.innerHTML = `
           <button onclick="openAuthModal()" class="px-3 py-1.5 theme-btn-primary rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-            <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Login to Store
+            <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Login to Cloud
           </button>
         `;
       }
       lucide.createIcons();
     }
 
-    function openAuthModal() {
-      document.getElementById('authModal').classList.remove('hidden');
-    }
-
-    function closeAuthModal() {
-      document.getElementById('authModal').classList.add('hidden');
-    }
+    function openAuthModal() { document.getElementById('authModal').classList.remove('hidden'); }
+    function closeAuthModal() { document.getElementById('authModal').classList.add('hidden'); }
 
     function switchAuthTab(tab) {
       const loginForm = document.getElementById('loginForm');
@@ -447,111 +429,95 @@
       const loginBtn = document.getElementById('tabLoginBtn');
       const registerBtn = document.getElementById('tabRegisterBtn');
       const title = document.getElementById('authModalTitle');
-      const subtitle = document.getElementById('authModalSubtitle');
 
       if (tab === 'login') {
         loginForm.classList.remove('hidden');
         registerForm.classList.add('hidden');
         loginBtn.className = 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition';
         registerBtn.className = 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
-        title.innerText = 'Account Login Required to Save';
-        subtitle.innerText = 'Sign in with your account to securely save and store your student profiles.';
+        title.innerText = 'Cloud Login Required to Save';
       } else {
         loginForm.classList.add('hidden');
         registerForm.classList.remove('hidden');
         registerBtn.className = 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition';
         loginBtn.className = 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
-        title.innerText = 'Create New Account';
-        subtitle.innerText = 'Register an account to manage and store multiple student profiles securely.';
+        title.innerText = 'Create Cloud Account';
       }
     }
 
-    function handleLoginSubmit(event) {
+    async function handleLoginSubmit(event) {
       event.preventDefault();
-      const username = document.getElementById('loginUsername').value.trim();
+      const email = document.getElementById('loginEmail').value.trim();
       const pass = document.getElementById('loginPassword').value;
+      const { auth, signInWithEmailAndPassword } = window.firebaseApp;
 
-      const users = getUsersDB();
-      if (!users[username] || users[username].password !== pass) {
-        alert('Invalid username or password. Please try again.');
-        return;
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        closeAuthModal();
+      } catch (err) {
+        alert('Login failed: ' + err.message);
       }
-
-      localStorage.setItem('tnau_active_user', username);
-      activeUsername = username;
-      closeAuthModal();
-      checkActiveSession();
     }
 
-    function handleRegisterSubmit(event) {
+    async function handleRegisterSubmit(event) {
       event.preventDefault();
-      const username = document.getElementById('regUsername').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
       const pass = document.getElementById('regPassword').value;
+      const { auth, createUserWithEmailAndPassword } = window.firebaseApp;
 
-      if (!username || !pass) return;
-
-      const users = getUsersDB();
-      if (users[username]) {
-        alert('Username already exists. Please choose a different one or sign in.');
-        return;
+      try {
+        await createUserWithEmailAndPassword(auth, email, pass);
+        closeAuthModal();
+      } catch (err) {
+        alert('Registration failed: ' + err.message);
       }
-
-      // Migrate guest profiles into the new account if any exist
-      users[username] = { 
-        password: pass,
-        profiles: guestProfiles
-      };
-      saveUsersDB(users);
-
-      for (const pid in guestDataStore) {
-        localStorage.setItem(`tnau_data_${username}_${pid}`, guestDataStore[pid]);
-      }
-
-      localStorage.setItem('tnau_active_user', username);
-      activeUsername = username;
-      closeAuthModal();
-      checkActiveSession();
     }
 
-    function triggerLogout() {
+    async function triggerLogout() {
+      const { auth, signOut } = window.firebaseApp;
       if (confirm('Are you sure you want to log out?')) {
-        localStorage.removeItem('tnau_active_user');
-        activeUsername = null;
-        document.getElementById('loginUsername').value = '';
-        document.getElementById('loginPassword').value = '';
-        checkActiveSession();
+        await signOut(auth);
       }
     }
 
-    function getAccountProfiles() {
-      if (activeUsername) {
-        const users = getUsersDB();
-        if (users[activeUsername]) {
-          if (!users[activeUsername].profiles || Object.keys(users[activeUsername].profiles).length === 0) {
-            users[activeUsername].profiles = { 'prof_default': { name: activeUsername, id: '' } };
-            saveUsersDB(users);
-          }
-          return users[activeUsername].profiles;
+    async function fetchUserDataFromCloud(uid) {
+      const { db, doc, getDoc } = window.firebaseApp;
+      try {
+        const docRef = doc(db, "users", uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          cloudDataStore = docSnap.data();
+        } else {
+          cloudDataStore = { 'prof_default': { name: 'Default Student', id: '', semesters: [] } };
         }
+      } catch (e) {
+        console.error("Error fetching cloud data:", e);
       }
-      return guestProfiles;
+      initProfilesList();
+    }
+
+    async function saveToCloud() {
+      if (!currentUser) return;
+      const { db, doc, setDoc } = window.firebaseApp;
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), cloudDataStore);
+      } catch (e) {
+        console.error("Error saving to cloud:", e);
+      }
     }
 
     function initProfilesList(filterQuery = '') {
-      const profiles = getAccountProfiles();
       const switcher = document.getElementById('profileSwitcher');
       switcher.innerHTML = '';
 
       let foundActive = false;
       let matchCount = 0;
 
-      for (const [pid, info] of Object.entries(profiles)) {
+      for (const [pid, info] of Object.entries(cloudDataStore)) {
         let label = info.name || info.id || 'Unnamed Student';
         if (info.name && info.id) label = `${info.name} (${info.id})`;
 
-        if (filterQuery && !label.toLowerCase().includes(filterQuery.toLowerCase())) {
-          continue;
-        }
+        if (filterQuery && !label.toLowerCase().includes(filterQuery.toLowerCase())) continue;
 
         matchCount++;
         const opt = document.createElement('option');
@@ -576,15 +542,8 @@
       loadProfileData(activeProfileId);
     }
 
-    function filterProfileDropdown(query) {
-      initProfilesList(query);
-    }
-
-    function switchActiveProfile(profileId) {
-      if (!profileId) return;
-      activeProfileId = profileId;
-      loadProfileData(profileId);
-    }
+    function filterProfileDropdown(query) { initProfilesList(query); }
+    function switchActiveProfile(profileId) { if (profileId) { activeProfileId = profileId; loadProfileData(profileId); } }
 
     function promptCreateNewProfile() {
       const inputVal = prompt('Enter Student Name or ID Number for new profile:');
@@ -594,47 +553,30 @@
       const cleanVal = inputVal.trim();
       const isLikelyId = /^[A-Za-z0-9\-\/]+$/.test(cleanVal) && cleanVal.length > 3 && /\d/.test(cleanVal);
 
-      const newProfObj = {
+      cloudDataStore[newPid] = {
         name: isLikelyId ? '' : cleanVal,
-        id: isLikelyId ? cleanVal : ''
+        id: isLikelyId ? cleanVal : '',
+        semesters: []
       };
-
-      if (activeUsername) {
-        const users = getUsersDB();
-        if (!users[activeUsername].profiles) users[activeUsername].profiles = {};
-        users[activeUsername].profiles[newPid] = newProfObj;
-        saveUsersDB(users);
-      } else {
-        guestProfiles[newPid] = newProfObj;
-      }
 
       activeProfileId = newPid;
       document.getElementById('profileSearchInput').value = '';
       initProfilesList();
+      saveToCloud();
     }
 
     function deleteActiveProfile() {
-      const profiles = getAccountProfiles();
-      const keys = Object.keys(profiles);
-
+      const keys = Object.keys(cloudDataStore);
       if (keys.length <= 1) {
         alert('You must maintain at least one student profile.');
         return;
       }
 
-      if (confirm('Are you sure you want to delete this student profile and its records?')) {
-        if (activeUsername) {
-          const users = getUsersDB();
-          localStorage.removeItem(`tnau_data_${activeUsername}_${activeProfileId}`);
-          delete users[activeUsername].profiles[activeProfileId];
-          saveUsersDB(users);
-        } else {
-          delete guestDataStore[activeProfileId];
-          delete guestProfiles[activeProfileId];
-        }
-
-        activeProfileId = Object.keys(getAccountProfiles())[0];
+      if (confirm('Are you sure you want to delete this student profile?')) {
+        delete cloudDataStore[activeProfileId];
+        activeProfileId = Object.keys(cloudDataStore)[0];
         initProfilesList();
+        saveToCloud();
       }
     }
 
@@ -642,18 +584,9 @@
       const nameVal = document.getElementById('studentNameInput').value;
       const idVal = document.getElementById('studentIdInput').value;
 
-      if (activeUsername) {
-        const users = getUsersDB();
-        if (users[activeUsername] && users[activeUsername].profiles[activeProfileId]) {
-          users[activeUsername].profiles[activeProfileId].name = nameVal.trim();
-          users[activeUsername].profiles[activeProfileId].id = idVal.trim();
-          saveUsersDB(users);
-        }
-      } else {
-        if (guestProfiles[activeProfileId]) {
-          guestProfiles[activeProfileId].name = nameVal.trim();
-          guestProfiles[activeProfileId].id = idVal.trim();
-        }
+      if (cloudDataStore[activeProfileId]) {
+        cloudDataStore[activeProfileId].name = nameVal.trim();
+        cloudDataStore[activeProfileId].id = idVal.trim();
       }
 
       const switcher = document.getElementById('profileSwitcher');
@@ -672,18 +605,13 @@
       if (!input) return '';
       input = input.trim().toUpperCase();
       if (/^[IVXLCDM]+$/.test(input)) return input;
-
       const cleaned = input.replace(/\D/g, '');
       let num = parseInt(cleaned, 10);
       if (isNaN(num) || num <= 0) return input;
-      
       const lookup = {M:1000, CM:900, D:500, CD:400, C:100, XC:90, L:50, XL:40, X:10, IX:9, V:5, IV:4, I:1};
       let roman = '';
       for (let i in lookup) {
-        while (num >= lookup[i]) {
-          roman += i;
-          num -= lookup[i];
-        }
+        while (num >= lookup[i]) { roman += i; num -= lookup[i]; }
       }
       return roman;
     }
@@ -691,9 +619,7 @@
     function formatSemesterTitle(inputTitle) {
       if (!inputTitle) return '';
       const match = inputTitle.match(/(?:sem(?:ester)?\.?\s*)?([0-9]+|[IVXLCDM]+)/i);
-      if (match && match[1]) {
-        return `Semester ${toRoman(match[1])}`;
-      }
+      if (match && match[1]) return `Semester ${toRoman(match[1])}`;
       return inputTitle;
     }
 
@@ -707,10 +633,7 @@
     }
 
     function applyPresetTheme(presetKey) {
-      if (presetKey === 'custom') {
-        applyCustomColor(document.getElementById('customColorPicker').value);
-        return;
-      }
+      if (presetKey === 'custom') { applyCustomColor(document.getElementById('customColorPicker').value); return; }
       const theme = themePresets[presetKey];
       if (theme) {
         document.getElementById('customColorPicker').value = theme.primary;
@@ -740,9 +663,7 @@
     function adjustHexColor(hex, percent) {
       let num = parseInt(hex.replace('#', ''), 16),
           amt = Math.round(2.55 * percent),
-          R = (num >> 16) + amt,
-          G = (num >> 8 & 0x00FF) + amt,
-          B = (num & 0x0000FF) + amt;
+          R = (num >> 16) + amt, G = (num >> 8 & 0x00FF) + amt, B = (num & 0x0000FF) + amt;
       return '#' + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
     }
 
@@ -792,9 +713,7 @@
                 <th class="px-3 py-2.5 font-semibold w-10 text-center align-middle whitespace-normal no-print"></th>
               </tr>
             </thead>
-            <tbody class="courseTableBody divide-y divide-slate-100">
-              <!-- Course rows -->
-            </tbody>
+            <tbody class="courseTableBody divide-y divide-slate-100"></tbody>
           </table>
         </div>
       `;
@@ -804,18 +723,8 @@
       return semId;
     }
 
-    function formatAndSave(input) {
-      input.value = formatSemesterTitle(input.value);
-      saveAndCalculate();
-    }
-
-    function removeSemesterBlock(semId) {
-      const el = document.getElementById(semId);
-      if (el) {
-        el.remove();
-        saveAndCalculate();
-      }
-    }
+    function formatAndSave(input) { input.value = formatSemesterTitle(input.value); saveAndCalculate(); }
+    function removeSemesterBlock(semId) { const el = document.getElementById(semId); if (el) { el.remove(); saveAndCalculate(); } }
 
     function addCourseRowToSem(semId, split = '', credits = '', marksVal = '', code = '', title = '', gpVal = '') {
       const semBlock = document.getElementById(semId);
@@ -826,189 +735,94 @@
 
       tr.innerHTML = `
         <td class="px-3 py-2 text-slate-400 font-medium text-xs row-number text-center"></td>
-        <td class="px-3 py-2">
-          <input type="text" placeholder="Code" value="${code}" oninput="saveAndCalculate()" class="course-code w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none uppercase font-semibold text-center">
-        </td>
-        <td class="px-3 py-2">
-          <input type="text" placeholder="Title" value="${title}" oninput="saveAndCalculate()" class="course-title w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-left">
-        </td>
-        <td class="px-3 py-2">
-          <input type="text" placeholder="e.g. 1+1" value="${split}" oninput="parseCreditSplit(this)" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center">
-        </td>
-        <td class="px-3 py-2">
-          <input type="number" step="0.1" min="0" max="100" placeholder="0 - 100" value="${marksVal}" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center">
-        </td>
-        <td class="px-3 py-2">
-          <input type="number" step="0.01" min="0" max="10" placeholder="0 - 10" value="${gpVal}" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center">
-        </td>
+        <td class="px-3 py-2"><input type="text" placeholder="Code" value="${code}" oninput="saveAndCalculate()" class="course-code w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none uppercase font-semibold text-center"></td>
+        <td class="px-3 py-2"><input type="text" placeholder="Title" value="${title}" oninput="saveAndCalculate()" class="course-title w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-left"></td>
+        <td class="px-3 py-2"><input type="text" placeholder="e.g. 1+1" value="${split}" oninput="parseCreditSplit(this)" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
+        <td class="px-3 py-2"><input type="number" step="0.1" min="0" max="100" placeholder="0 - 100" value="${marksVal}" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
+        <td class="px-3 py-2"><input type="number" step="0.01" min="0" max="10" placeholder="0 - 10" value="${gpVal}" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
         <td class="px-3 py-2 font-semibold theme-text text-xs course-cp text-center">0.00</td>
-        <td class="px-3 py-2 text-center course-status">
-          <span class="text-[11px] font-medium text-slate-400">-</span>
-        </td>
-        <td class="px-3 py-2 text-center no-print">
-          <button onclick="removeCourseRow(this)" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </td>
+        <td class="px-3 py-2 text-center course-status"><span class="text-[11px] font-medium text-slate-400">-</span></td>
+        <td class="px-3 py-2 text-center no-print"><button onclick="removeCourseRow(this)" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
       `;
 
       tbody.appendChild(tr);
-
-      if (split) {
-        parseCreditSplit(tr.querySelector('.course-split'));
-      }
-
-      if (marksVal !== '' && marksVal !== undefined) {
-        tr.querySelector('.course-marks').value = marksVal;
-        syncScoreInputs(tr, 'marks');
-      } else if (gpVal !== '' && gpVal !== undefined) {
-        tr.querySelector('.course-gp-input').value = gpVal;
-        syncScoreInputs(tr, 'gp');
-      }
+      if (split) parseCreditSplit(tr.querySelector('.course-split'));
+      if (marksVal !== '' && marksVal !== undefined) { tr.querySelector('.course-marks').value = marksVal; syncScoreInputs(tr, 'marks'); }
+      else if (gpVal !== '' && gpVal !== undefined) { tr.querySelector('.course-gp-input').value = gpVal; syncScoreInputs(tr, 'gp'); }
 
       updateRowNumbers(tbody);
       lucide.createIcons();
     }
 
-    function removeCourseRow(btn) {
-      const tr = btn.closest('tr');
-      const tbody = tr.parentNode;
-      tr.remove();
-      updateRowNumbers(tbody);
-      saveAndCalculate();
-    }
-
-    function updateRowNumbers(tbody) {
-      const rows = tbody.querySelectorAll('tr');
-      rows.forEach((row, index) => {
-        row.querySelector('.row-number').innerText = index + 1;
-      });
-    }
+    function removeCourseRow(btn) { const tr = btn.closest('tr'); const tbody = tr.parentNode; tr.remove(); updateRowNumbers(tbody); saveAndCalculate(); }
+    function updateRowNumbers(tbody) { tbody.querySelectorAll('tr').forEach((row, i) => row.querySelector('.row-number').innerText = i + 1); }
 
     function parseCreditSplit(input) {
-      const val = input.value.trim();
-      const row = input.closest('tr');
+      const val = input.value.trim(); const row = input.closest('tr');
       if (val.includes('+')) {
-        const parts = val.split('+').map(p => parseFloat(p.trim()) || 0);
-        row.dataset.credits = parts.reduce((a, b) => a + b, 0);
-      } else {
-        row.dataset.credits = parseFloat(val) || '';
+        row.dataset.credits = val.split('+').map(p => parseFloat(p.trim()) || 0).reduce((a, b) => a + b, 0);
+      } else { row.dataset.credits = parseFloat(val) || ''; }
+      saveAndCalculate();
+    }
+
+    function syncScoreInputs(row, source) {
+      const marksInput = row.querySelector('.course-marks'); const gpInput = row.querySelector('.course-gp-input');
+      if (source === 'marks') {
+        const val = parseFloat(marksInput.value); gpInput.value = (!isNaN(val) && val >= 0) ? (val / 10).toFixed(2) : '';
+      } else if (source === 'gp') {
+        const val = parseFloat(gpInput.value); marksInput.value = (!isNaN(val) && val >= 0) ? (val * 10).toFixed(1) : '';
       }
       saveAndCalculate();
     }
 
-    function syncScoreInputs(row, changedSource) {
-      const marksInput = row.querySelector('.course-marks');
-      const gpInput = row.querySelector('.course-gp-input');
-
-      if (changedSource === 'marks') {
-        const val = parseFloat(marksInput.value);
-        if (!isNaN(val) && val >= 0) {
-          gpInput.value = (val / 10).toFixed(2);
-        } else {
-          gpInput.value = '';
-        }
-      } else if (changedSource === 'gp') {
-        const val = parseFloat(gpInput.value);
-        if (!isNaN(val) && val >= 0) {
-          marksInput.value = (val * 10).toFixed(1);
-        } else {
-          marksInput.value = '';
-        }
-      }
-      saveAndCalculate();
-    }
-
-    function clearImportText() {
-      document.getElementById('bulkImportInput').value = '';
-    }
+    function clearImportText() { document.getElementById('bulkImportInput').value = ''; }
 
     function processBulkImport() {
-      const text = document.getElementById('bulkImportInput').value;
-      if (!text.trim()) return;
-
+      const text = document.getElementById('bulkImportInput').value; if (!text.trim()) return;
       const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-      
-      let semCards = document.querySelectorAll('.semester-card');
-      let currentSemId = null;
-      let isFirstHeader = true;
+      let semCards = document.querySelectorAll('.semester-card'); let currentSemId = null; let isFirst = true;
 
       lines.forEach((line) => {
-        const semHeaderMatch = line.match(/^Sem(?:ester)?\.?\s*([0-9]+|[IVXLCDM]+)/i);
-        if (semHeaderMatch) {
-          const semNum = semHeaderMatch[1];
-          const formattedName = formatSemesterTitle(`Semester ${semNum}`);
-          
-          if (isFirstHeader && semCards.length === 1 && semCards[0].querySelectorAll('.courseTableBody tr').length === 0) {
-            currentSemId = semCards[0].id;
-            semCards[0].querySelector('.sem-title-input').value = formattedName;
-          } else {
-            currentSemId = addNewSemesterBlock(formattedName);
-          }
-          isFirstHeader = false;
-          return;
+        const semMatch = line.match(/^Sem(?:ester)?\.?\s*([0-9]+|[IVXLCDM]+)/i);
+        if (semMatch) {
+          const formatted = formatSemesterTitle(`Semester ${semMatch[1]}`);
+          if (isFirst && semCards.length === 1 && semCards[0].querySelectorAll('.courseTableBody tr').length === 0) {
+            currentSemId = semCards[0].id; semCards[0].querySelector('.sem-title-input').value = formatted;
+          } else { currentSemId = addNewSemesterBlock(formatted); }
+          isFirst = false; return;
         }
-
         const codeMatch = line.match(/([A-Z]{2,4}\s*\d{2,3})/i);
         if (codeMatch) {
-          if (!currentSemId) {
-            if (semCards.length > 0 && semCards[semCards.length - 1].querySelectorAll('.courseTableBody tr').length === 0) {
-              currentSemId = semCards[semCards.length - 1].id;
-            } else {
-              currentSemId = addNewSemesterBlock();
-            }
-          }
-
-          const code = codeMatch[1].toUpperCase().trim();
-          let remainder = line.replace(codeMatch[0], '').trim();
-
-          let split = '';
-          const creditSplitMatch = remainder.match(/(\d\s*\+\s*\d)/);
-          if (creditSplitMatch) {
-            split = creditSplitMatch[1].replace(/\s+/g, '');
-            remainder = remainder.replace(creditSplitMatch[0], '').trim();
-          }
-
-          let gradeVal = '';
-          let marksVal = '';
-          const tokens = remainder.split(/\s+/).filter(t => t.length > 0);
+          if (!currentSemId) currentSemId = semCards.length > 0 ? semCards[semCards.length - 1].id : addNewSemesterBlock();
+          const code = codeMatch[1].toUpperCase().trim(); let rem = line.replace(codeMatch[0], '').trim();
+          let split = ''; const splitMatch = rem.match(/(\d\s*\+\s*\d)/);
+          if (splitMatch) { split = splitMatch[1].replace(/\s+/g, ''); rem = rem.replace(splitMatch[0], '').trim(); }
+          let gradeVal = ''; let marksVal = ''; const tokens = rem.split(/\s+/).filter(t => t.length > 0);
           if (tokens.length > 0) {
-            const lastToken = parseFloat(tokens[tokens.length - 1]);
-            if (!isNaN(lastToken)) {
-              tokens.pop();
-              if (lastToken <= 10) {
-                gradeVal = lastToken;
-              } else {
-                marksVal = lastToken;
-              }
-            }
+            const last = parseFloat(tokens[tokens.length - 1]);
+            if (!isNaN(last)) { tokens.pop(); if (last <= 10) gradeVal = last; else marksVal = last; }
           }
-
-          let title = tokens.join(' ').replace(/^\.|\d+\./g, '').trim();
-          addCourseRowToSem(currentSemId, split, '', marksVal, code, title, gradeVal);
+          addCourseRowToSem(currentSemId, split, '', marksVal, code, tokens.join(' ').replace(/^\.|\d+\./g, '').trim(), gradeVal);
         }
       });
-
       saveAndCalculate();
     }
 
     function saveAndCalculate() {
-      if (!activeProfileId) return;
+      if (!activeProfileId || !cloudDataStore[activeProfileId]) return;
       calculateAll();
-      
-      const appData = {
-        name: document.getElementById('studentNameInput').value,
-        id: document.getElementById('studentIdInput').value,
-        degree: document.getElementById('degreeInput').value,
-        batch: document.getElementById('batchInput').value,
-        passMark: passMarkThreshold,
-        theme: document.getElementById('presetThemeSelect').value,
-        customColor: document.getElementById('customColorPicker').value,
-        semesters: []
-      };
 
+      cloudDataStore[activeProfileId].name = document.getElementById('studentNameInput').value;
+      cloudDataStore[activeProfileId].id = document.getElementById('studentIdInput').value;
+      cloudDataStore[activeProfileId].degree = document.getElementById('degreeInput').value;
+      cloudDataStore[activeProfileId].batch = document.getElementById('batchInput').value;
+      cloudDataStore[activeProfileId].passMark = passMarkThreshold;
+      cloudDataStore[activeProfileId].theme = document.getElementById('presetThemeSelect').value;
+      cloudDataStore[activeProfileId].customColor = document.getElementById('customColorPicker').value;
+
+      const semesters = [];
       document.querySelectorAll('.semester-card').forEach(semCard => {
-        const semTitle = semCard.querySelector('.sem-title-input').value;
+        const title = semCard.querySelector('.sem-title-input').value;
         const courses = [];
         semCard.querySelectorAll('.courseTableBody tr').forEach(row => {
           courses.push({
@@ -1019,73 +833,37 @@
             gp: row.querySelector('.course-gp-input').value
           });
         });
-        appData.semesters.push({ title: semTitle, courses: courses });
+        semesters.push({ title, courses });
       });
+      cloudDataStore[activeProfileId].semesters = semesters;
 
-      const jsonStr = JSON.stringify(appData);
-      if (activeUsername) {
-        localStorage.setItem(`tnau_data_${activeUsername}_${activeProfileId}`, jsonStr);
-      } else {
-        guestDataStore[activeProfileId] = jsonStr;
-      }
+      saveToCloud();
     }
 
     function loadProfileData(profileId) {
-      let saved = null;
-      if (activeUsername) {
-        saved = localStorage.getItem(`tnau_data_${activeUsername}_${profileId}`);
-      } else {
-        saved = guestDataStore[profileId];
-      }
-
       document.getElementById('semestersContainer').innerHTML = '';
       semesterCounter = 0;
+      const data = cloudDataStore[profileId] || { name: '', id: '', semesters: [] };
 
-      const profiles = getAccountProfiles();
-      const currentInfo = profiles[profileId] || { name: '', id: '' };
-
-      if (!saved) {
-        document.getElementById('studentNameInput').value = currentInfo.name || '';
-        document.getElementById('studentIdInput').value = currentInfo.id || '';
-        document.getElementById('degreeInput').value = '';
-        document.getElementById('batchInput').value = '';
-        addNewSemesterBlock('Semester I');
-        calculateAll();
-        return;
+      document.getElementById('studentNameInput').value = data.name || '';
+      document.getElementById('studentIdInput').value = data.id || '';
+      document.getElementById('degreeInput').value = data.degree || '';
+      document.getElementById('batchInput').value = data.batch || '';
+      if (data.passMark) setPassMark(data.passMark);
+      if (data.theme) {
+        document.getElementById('presetThemeSelect').value = data.theme;
+        if (data.theme === 'custom' && data.customColor) {
+          document.getElementById('customColorPicker').value = data.customColor;
+          applyCustomColor(data.customColor);
+        } else { applyPresetTheme(data.theme); }
       }
 
-      try {
-        const data = JSON.parse(saved);
-        document.getElementById('studentNameInput').value = data.name || currentInfo.name || '';
-        document.getElementById('studentIdInput').value = data.id || currentInfo.id || '';
-        document.getElementById('degreeInput').value = data.degree || '';
-        document.getElementById('batchInput').value = data.batch || '';
-        if (data.passMark) setPassMark(data.passMark);
-        if (data.theme) {
-          document.getElementById('presetThemeSelect').value = data.theme;
-          if (data.theme === 'custom' && data.customColor) {
-            document.getElementById('customColorPicker').value = data.customColor;
-            applyCustomColor(data.customColor);
-          } else {
-            applyPresetTheme(data.theme);
-          }
-        }
-
-        if (data.semesters && data.semesters.length > 0) {
-          data.semesters.forEach(sem => {
-            const semId = addNewSemesterBlock(sem.title);
-            if (sem.courses && sem.courses.length > 0) {
-              sem.courses.forEach(c => {
-                addCourseRowToSem(semId, c.split, '', c.marks, c.code, c.title, c.gp);
-              });
-            }
-          });
-        } else {
-          addNewSemesterBlock('Semester I');
-        }
-      } catch (e) {
-        console.error('Error loading profile data:', e);
-      }
+      if (data.semesters && data.semesters.length > 0) {
+        data.semesters.forEach(sem => {
+          const semId = addNewSemesterBlock(sem.title);
+          if (sem.courses) sem.courses.forEach(c => addCourseRowToSem(semId, c.split, '', c.marks, c.code, c.title, c.gp));
+        });
+      } else { addNewSemesterBlock('Semester I'); }
 
       calculateAll();
     }
@@ -1106,114 +884,55 @@
       document.getElementById('printRowDegree').style.display = degree ? 'flex' : 'none';
       document.getElementById('printRowBatch').style.display = batch ? 'flex' : 'none';
 
-      const profileBox = document.getElementById('printProfileBox');
-      if (!name && !id && !degree && !batch) {
-        profileBox.style.display = 'none';
-      } else {
-        profileBox.style.display = 'block';
-      }
+      document.getElementById('printProfileBox').style.display = (!name && !id && !degree && !batch) ? 'none' : 'block';
 
-      const semesterBlocks = document.querySelectorAll('.semester-card');
-      let cumulativeCredits = 0;
-      let cumulativePoints = 0;
+      let totalCredits = 0; let totalPoints = 0;
+      const breakdownList = document.getElementById('semesterBreakdownList'); breakdownList.innerHTML = '';
 
-      const breakdownList = document.getElementById('semesterBreakdownList');
-      breakdownList.innerHTML = '';
-
-      semesterBlocks.forEach((semCard) => {
+      document.querySelectorAll('.semester-card').forEach((semCard) => {
         const semTitle = semCard.querySelector('.sem-title-input').value.trim() || 'Semester';
-        const tbody = semCard.querySelector('.courseTableBody');
-        const rows = tbody.querySelectorAll('tr');
+        let semCredits = 0; let semPoints = 0;
 
-        let semCredits = 0;
-        let semPoints = 0;
-
-        rows.forEach((row) => {
-          const splitVal = row.querySelector('.course-split').value.trim();
+        semCard.querySelectorAll('.courseTableBody tr').forEach((row) => {
+          const split = row.querySelector('.course-split').value.trim();
           const marks = parseFloat(row.querySelector('.course-marks').value);
           const gp = parseFloat(row.querySelector('.course-gp-input').value);
-          const codeVal = row.querySelector('.course-code').value.trim();
-          const titleVal = row.querySelector('.course-title').value.trim();
+          let credits = parseFloat(row.dataset.credits) || (split.includes('+') ? split.split('+').reduce((a,b)=>parseFloat(a)+parseFloat(b),0) : parseFloat(split)) || 0;
 
-          let credits = parseFloat(row.dataset.credits);
-          if (isNaN(credits) || credits <= 0) {
-            if (splitVal.includes('+')) {
-              credits = splitVal.split('+').map(p => parseFloat(p.trim()) || 0).reduce((a, b) => a + b, 0);
-            } else {
-              credits = parseFloat(splitVal) || 0;
-            }
-          }
-
-          const cpCell = row.querySelector('.course-cp');
-          const statusCell = row.querySelector('.course-status');
-
-          const isRowFilled = (codeVal !== '' || titleVal !== '' || splitVal !== '' || !isNaN(marks) || !isNaN(gp));
-          
-          if (isRowFilled) {
-            row.classList.remove('empty-course-row');
-          } else {
-            row.classList.add('empty-course-row');
-          }
+          const cpCell = row.querySelector('.course-cp'); const statusCell = row.querySelector('.course-status');
+          const isFilled = (row.querySelector('.course-code').value || row.querySelector('.course-title').value || split || !isNaN(marks) || !isNaN(gp));
+          row.classList.toggle('empty-course-row', !isFilled);
 
           if (credits > 0 && !isNaN(gp) && gp >= 0) {
-            const cp = credits * gp;
-            cpCell.innerText = cp.toFixed(2);
-
-            if (marks >= passMarkThreshold) {
-              statusCell.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>';
-            } else {
-              statusCell.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>';
-            }
-
-            semCredits += credits;
-            semPoints += cp;
-          } else {
-            cpCell.innerText = '0.00';
-            statusCell.innerHTML = '<span class="text-[11px] font-medium text-slate-400">-</span>';
-          }
+            const cp = credits * gp; cpCell.innerText = cp.toFixed(2);
+            statusCell.innerHTML = marks >= passMarkThreshold ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>' : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>';
+            semCredits += credits; semPoints += cp;
+          } else { cpCell.innerText = '0.00'; statusCell.innerHTML = '<span class="text-[11px] text-slate-400">-</span>'; }
         });
 
         const semGPA = semCredits > 0 ? (semPoints / semCredits) : 0;
         semCard.querySelector('.sem-gpa-badge').innerText = semGPA.toFixed(2);
-
-        cumulativeCredits += semCredits;
-        cumulativePoints += semPoints;
+        totalCredits += semCredits; totalPoints += semPoints;
 
         if (semCredits > 0) {
           const item = document.createElement('div');
           item.className = 'flex justify-between items-center py-1 border-b border-slate-50';
-          item.innerHTML = `
-            <span class="font-medium text-slate-600">${semTitle}</span>
-            <span class="font-bold theme-text">${semGPA.toFixed(2)} <span class="text-[10px] text-slate-400 font-normal">(${semCredits} Cr)</span></span>
-          `;
+          item.innerHTML = `<span class="font-medium text-slate-600">${semTitle}</span><span class="font-bold theme-text">${semGPA.toFixed(2)} <span class="text-[10px] text-slate-400">(${semCredits} Cr)</span></span>`;
           breakdownList.appendChild(item);
         }
       });
 
-      const overallOGPA = cumulativeCredits > 0 ? (cumulativePoints / cumulativeCredits) : 0;
+      const overallOGPA = totalCredits > 0 ? (totalPoints / totalCredits) : 0;
       document.getElementById('cumulativeOgpaDisplay').innerText = overallOGPA.toFixed(2);
       document.getElementById('percentageDisplay').innerText = `Overall Percentage: ${(overallOGPA * 10).toFixed(2)}%`;
-      document.getElementById('totalCreditsDisplay').innerText = cumulativeCredits.toFixed(1);
-      document.getElementById('totalPointsDisplay').innerText = cumulativePoints.toFixed(2);
+      document.getElementById('totalCreditsDisplay').innerText = totalCredits.toFixed(1);
+      document.getElementById('totalPointsDisplay').innerText = totalPoints.toFixed(2);
     }
 
-    function printAppSummaryView() {
-      window.print();
-    }
-
+    function printAppSummaryView() { window.print(); }
     function copySummary() {
-      const name = document.getElementById('summaryName').innerText;
-      const id = document.getElementById('summaryId').innerText;
-      const ogpa = document.getElementById('cumulativeOgpaDisplay').innerText;
-      const credits = document.getElementById('totalCreditsDisplay').innerText;
-
-      const text = `--- TNAU Multi-Semester Academic Summary ---\nStudent: ${name}\nID Number: ${id}\nCumulative OGPA: ${ogpa}\nTotal Credits Evaluated: ${credits}\nGenerated via TNAU GPA & OGPA Engine`;
-
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Academic summary copied to clipboard!');
-      }).catch(err => {
-        console.error('Failed to copy text: ', err);
-      });
+      const text = `--- TNAU Multi-Semester Academic Summary ---\nStudent: ${document.getElementById('summaryName').innerText}\nID: ${document.getElementById('summaryId').innerText}\nCumulative OGPA: ${document.getElementById('cumulativeOgpaDisplay').innerText}`;
+      navigator.clipboard.writeText(text).then(() => alert('Summary copied to clipboard!'));
     }
   </script>
 </body>
