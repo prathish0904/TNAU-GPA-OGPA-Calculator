@@ -10,13 +10,13 @@
   <title>TNAU Multi-Semester GPA & OGPA Engine</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons CDN -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Lucide Icons CDN (version pinned so a future release can't break the page) -->
+  <script src="https://unpkg.com/lucide@0.469.0"></script>
   <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteField, onSnapshot } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBZqqMw39EvqjaB4_SxrpkLDC_gQ1NdLvE",
@@ -32,7 +32,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    window.firebaseApp = { auth, db, doc, setDoc, getDoc, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged };
+    window.firebaseApp = { auth, db, doc, setDoc, getDoc, updateDoc, deleteField, onSnapshot, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
   </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -52,6 +52,13 @@
     .theme-card-light { background-color: var(--primary-light) !important; border-color: var(--primary-border) !important; }
     .theme-text { color: var(--primary-text) !important; }
 
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
+      outline: 2px solid var(--primary-color); outline-offset: 1px;
+    }
+    .input-invalid { border-color: #f87171 !important; background-color: #fef2f2 !important; }
+    .toast { animation: toastIn .2s ease-out; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
     .print-only { display: none; }
 
     @media print {
@@ -66,15 +73,15 @@
       header, footer, section { box-shadow: none !important; margin: 0 !important; padding: 4px 0 !important; }
       main { padding: 0 !important; display: block !important; width: 100% !important; max-width: none !important; }
       .lg\:col-span-8, .lg\:col-span-4 { width: 100% !important; margin-bottom: 10px !important; }
-      
+
       .semester-card {
         break-inside: avoid !important;
         page-break-inside: avoid !important;
         margin-bottom: 15px !important;
       }
-      
+
       table { font-size: 9px !important; width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; }
-      
+
       th:nth-child(1), td:nth-child(1) { width: 5% !important; text-align: center !important; }
       th:nth-child(2), td:nth-child(2) { width: 16% !important; text-align: center !important; }
       th:nth-child(3), td:nth-child(3) { width: 37% !important; text-align: left !important; }
@@ -96,8 +103,11 @@
 </head>
 <body id="appBody" class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
+  <!-- TOASTS -->
+  <div id="toastHost" class="fixed bottom-4 right-4 z-[60] space-y-2 no-print" aria-live="polite"></div>
+
   <!-- AUTHENTICATION MODAL -->
-  <div id="authModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-6">
       <div class="flex justify-between items-start">
         <div class="space-y-1">
@@ -107,7 +117,7 @@
           <h3 id="authModalTitle" class="text-lg font-bold text-slate-800">Cloud Login Required to Store</h3>
           <p id="authModalSubtitle" class="text-xs text-slate-500">Sign in with email and password to securely sync your profiles across devices.</p>
         </div>
-        <button onclick="closeAuthModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
+        <button onclick="closeAuthModal()" aria-label="Close" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -117,28 +127,32 @@
         <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="py-2 rounded-lg text-slate-500 hover:text-slate-800 transition">Create Account</button>
       </div>
 
+      <div id="authError" class="hidden text-xs bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2" role="alert"></div>
+
       <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4 text-xs">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
-          <input type="email" id="loginEmail" required placeholder="name@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+          <label for="loginEmail" class="block font-semibold text-slate-700 mb-1">Email Address</label>
+          <input type="email" id="loginEmail" required autocomplete="email" placeholder="name@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Password</label>
-          <input type="password" id="loginPassword" required placeholder="Enter your password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+          <label for="loginPassword" class="block font-semibold text-slate-700 mb-1">Password</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="Enter your password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
         </div>
-        <button type="submit" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm">Sign In & Sync</button>
+        <button type="submit" id="loginSubmitBtn" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm disabled:opacity-60">Sign In & Sync</button>
+        <button type="button" onclick="handlePasswordReset()" class="w-full text-center text-slate-500 hover:text-slate-800 underline underline-offset-2">Forgot password?</button>
       </form>
 
       <form id="registerForm" onsubmit="handleRegisterSubmit(event)" class="space-y-4 text-xs hidden">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Email Address</label>
-          <input type="email" id="regEmail" required placeholder="name@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+          <label for="regEmail" class="block font-semibold text-slate-700 mb-1">Email Address</label>
+          <input type="email" id="regEmail" required autocomplete="email" placeholder="name@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Password (6+ chars)</label>
-          <input type="password" id="regPassword" required placeholder="Create a secure password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+          <label for="regPassword" class="block font-semibold text-slate-700 mb-1">Password (6+ chars)</label>
+          <input type="password" id="regPassword" required minlength="6" autocomplete="new-password" placeholder="Create a secure password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
         </div>
-        <button type="submit" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm">Register Account & Sync</button>
+        <button type="submit" id="registerSubmitBtn" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm disabled:opacity-60">Register Account & Sync</button>
+        <p class="text-[11px] text-slate-400 text-center">Anything you entered as a guest on this device is copied into your new account.</p>
       </form>
     </div>
   </div>
@@ -160,7 +174,7 @@
         <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div class="bg-black/20 backdrop-blur-md border border-white/20 rounded-xl p-2 flex items-center gap-2">
             <i data-lucide="palette" class="w-4 h-4 text-white/90"></i>
-            <span class="text-xs font-semibold text-white">Theme:</span>
+            <label for="presetThemeSelect" class="text-xs font-semibold text-white">Theme:</label>
             <select id="presetThemeSelect" onchange="applyPresetTheme(this.value)" class="bg-white/20 text-white text-xs font-semibold rounded-lg px-2 py-1 outline-none border border-white/30 cursor-pointer">
               <option value="emerald" class="text-slate-900">🌿 Emerald Green</option>
               <option value="ocean" class="text-slate-900">🌊 Ocean Blue</option>
@@ -168,7 +182,7 @@
               <option value="dark" class="text-slate-900">🌙 Slate Dark</option>
               <option value="custom" class="text-slate-900">🎨 Custom Color</option>
             </select>
-            <input type="color" id="customColorPicker" value="#065f46" oninput="applyCustomColor(this.value)" title="Choose Custom Theme Color" class="w-6 h-6 rounded border-0 cursor-pointer bg-transparent">
+            <input type="color" id="customColorPicker" value="#065f46" oninput="applyCustomColor(this.value)" title="Choose Custom Theme Color" aria-label="Custom theme color" class="w-6 h-6 rounded border-0 cursor-pointer bg-transparent">
           </div>
 
           <div class="bg-black/20 backdrop-blur-md border border-white/20 rounded-xl p-2 flex items-center gap-2">
@@ -177,7 +191,7 @@
             <div class="flex items-center gap-1">
               <button onclick="setPassMark(50)" class="px-2 py-0.5 rounded text-xs font-semibold bg-white/20 hover:bg-white/30 text-white transition">50%</button>
               <button onclick="setPassMark(60)" class="px-2 py-0.5 rounded text-xs font-semibold bg-white/20 hover:bg-white/30 text-white transition">60%</button>
-              <input type="number" id="customPassInput" value="50" min="0" max="100" oninput="setPassMark(this.value)" class="w-12 text-center text-xs font-bold py-0.5 bg-white text-slate-900 rounded outline-none">
+              <input type="number" id="customPassInput" value="50" min="0" max="100" aria-label="Custom pass mark percent" oninput="setPassMark(this.value, true)" class="w-12 text-center text-xs font-bold py-0.5 bg-white text-slate-900 rounded outline-none">
               <span class="text-xs font-bold text-white">%</span>
             </div>
           </div>
@@ -187,7 +201,7 @@
   </header>
 
   <!-- Account & Searchable Profile Switcher Bar -->
-  <section class="max-w-6xl mx-auto mt-6 px-4 no-print">
+  <section class="max-w-6xl mx-auto mt-6 px-4 no-print w-full">
     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div class="flex items-center gap-3">
         <div class="p-2.5 theme-card-light theme-text rounded-xl">
@@ -198,7 +212,7 @@
             Cloud Account: <span id="currentUserDisplay" class="theme-text font-extrabold">Guest Mode</span>
           </h1>
           <p class="text-slate-500 text-xs">
-            Search profiles by name/ID. Login with cloud account to sync data across devices.
+            <span id="syncStatus" class="font-semibold">Ready</span> • Search profiles by name/ID. Log in to sync across devices.
           </p>
         </div>
       </div>
@@ -206,29 +220,25 @@
       <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
         <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-medium">
           <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
-          <input type="text" id="profileSearchInput" placeholder="Search profiles..." oninput="filterProfileDropdown(this.value)" class="bg-transparent text-slate-800 outline-none w-28 text-xs font-medium">
-          <select id="profileSwitcher" onchange="switchActiveProfile(this.value)" class="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[150px]">
+          <input type="text" id="profileSearchInput" placeholder="Search profiles..." aria-label="Search profiles" oninput="filterProfileDropdown(this.value)" class="bg-transparent text-slate-800 outline-none w-28 text-xs font-medium">
+          <select id="profileSwitcher" aria-label="Active profile" onchange="switchActiveProfile(this.value)" class="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[150px]">
           </select>
         </div>
         <button onclick="promptCreateNewProfile()" class="px-3 py-1.5 theme-card-light theme-text border rounded-xl text-xs font-semibold transition flex items-center gap-1" title="Add Student Profile">
           <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Add Profile
         </button>
-        <button onclick="deleteActiveProfile()" class="p-2 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition" title="Delete Active Profile">
+        <button onclick="deleteActiveProfile()" aria-label="Delete active profile" class="p-2 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition" title="Delete Active Profile">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
         </button>
         <div class="h-6 w-px bg-slate-200 mx-1"></div>
-        <div id="authActionContainer">
-          <button onclick="openAuthModal()" class="px-3 py-1.5 theme-btn-primary rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-            <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Login to Cloud
-          </button>
-        </div>
+        <div id="authActionContainer"></div>
       </div>
     </div>
   </section>
 
   <!-- App Main Content Container -->
   <main id="appMainContainer" class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
-    
+
     <div class="lg:col-span-8 space-y-6">
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div class="flex items-center gap-2 border-b border-slate-100 pb-3 no-print">
@@ -238,38 +248,50 @@
             <p class="text-xs text-slate-500">Fill in your details for your summary report.</p>
           </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Student Name</label>
-            <input type="text" id="studentNameInput" placeholder="Enter Name" oninput="handleProfileDetailInput()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+            <label for="studentNameInput" class="block font-semibold text-slate-700 mb-1">Student Name</label>
+            <input type="text" id="studentNameInput" placeholder="Enter Name" oninput="handleProfileDetailInput()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">ID Number</label>
-            <input type="text" id="studentIdInput" placeholder="Enter ID Number" oninput="handleProfileDetailInput()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+            <label for="studentIdInput" class="block font-semibold text-slate-700 mb-1">ID Number</label>
+            <input type="text" id="studentIdInput" placeholder="Enter ID Number" oninput="handleProfileDetailInput()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Degree Programme</label>
-            <input type="text" id="degreeInput" placeholder="e.g. B.Tech (EEE)" oninput="saveAndCalculate()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+            <label for="degreeInput" class="block font-semibold text-slate-700 mb-1">Degree Programme</label>
+            <select id="degreeInput" onchange="onProgrammeOrBatchChange()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white cursor-pointer">
+              <option value="">Select Programme</option>
+              <option value="B.Sc. (Hons.) Agriculture">B.Sc. (Hons.) Agriculture</option>
+              <option value="B.Sc. (Hons.) Horticulture">B.Sc. (Hons.) Horticulture</option>
+              <option value="B.Sc. (Hons.) Agri Business Management">B.Sc. (Hons.) Agri Business Management</option>
+              <option value="B.Sc. (Hons.) Forestry">B.Sc. (Hons.) Forestry</option>
+              <option value="B.Sc. (Hons.) Sericulture">B.Sc. (Hons.) Sericulture</option>
+              <option value="B.Sc. (Hons.) Food, Nutrition and Dietetics">B.Sc. (Hons.) Food, Nutrition and Dietetics</option>
+              <option value="B.Tech. (Agricultural Engineering)">B.Tech. (Agricultural Engineering)</option>
+              <option value="B.Tech. (Energy and Environmental Engineering)">B.Tech. (Energy and Environmental Engineering)</option>
+              <option value="B.Tech. (Food Technology)">B.Tech. (Food Technology)</option>
+              <option value="B.Tech. (Agricultural Information Technology)">B.Tech. (Agricultural Information Technology)</option>
+              <option value="B.Tech. (Biotechnology)">B.Tech. (Biotechnology)</option>
+              <option value="B.Tech. (Bioinformatics)">B.Tech. (Bioinformatics)</option>
+            </select>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Batch</label>
-            <input type="text" id="batchInput" placeholder="e.g. 2024 - 2028" oninput="saveAndCalculate()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500">
+            <label for="batchInput" class="block font-semibold text-slate-700 mb-1">Batch Start Year</label>
+            <input type="number" id="batchInput" placeholder="e.g. 2024" oninput="onProgrammeOrBatchChange()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white text-center font-semibold">
           </div>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 no-print">
-        <div class="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-          <i data-lucide="clipboard-list" class="w-5 h-5 theme-text"></i>
-          <h3 class="text-sm font-bold text-slate-800">Quick Text Bulk Importer</h3>
-        </div>
-        <div class="grid grid-cols-1 gap-2">
-          <textarea id="bulkImportInput" rows="3" placeholder="Paste course lines here (e.g., Sem I \n FMP 212 2+1 7.05)..." class="w-full text-xs font-mono p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"></textarea>
-          <div class="flex justify-between items-center">
-            <button onclick="clearImportText()" class="text-xs text-slate-400 hover:text-slate-600 font-medium">Clear Text Box</button>
-            <button onclick="processBulkImport()" class="px-4 py-2 theme-card-light theme-text border rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-              <i data-lucide="check" class="w-3.5 h-3.5"></i> Parse & Import to Active Semester
-            </button>
+          <div>
+            <label for="semsDoneInput" class="block font-semibold text-slate-700 mb-1">Semesters Completed</label>
+            <select id="semsDoneInput" onchange="onProgrammeOrBatchChange()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white cursor-pointer">
+              <option value="">All available</option>
+              <option value="1">1 semester</option>
+              <option value="2">2 semesters</option>
+              <option value="3">3 semesters</option>
+              <option value="4">4 semesters</option>
+              <option value="5">5 semesters</option>
+              <option value="6">6 semesters</option>
+              <option value="7">7 semesters</option>
+              <option value="8">8 semesters</option>
+            </select>
           </div>
         </div>
       </div>
@@ -278,14 +300,14 @@
 
       <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm no-print">
         <span class="text-xs font-semibold text-slate-600">Need to add a semester?</span>
-        <button onclick="addNewSemesterBlock(); saveAndCalculate();" class="px-4 py-2 theme-card-light theme-text border rounded-xl text-xs font-bold hover:opacity-80 transition flex items-center gap-1.5">
+        <button onclick="addNewSemesterBlock(); sortSemesterCards(); saveAndCalculate();" class="px-4 py-2 theme-card-light theme-text border rounded-xl text-xs font-bold hover:opacity-80 transition flex items-center gap-1.5">
           <i data-lucide="plus-circle" class="w-4 h-4"></i> Add New Semester
         </button>
       </div>
     </div>
 
     <div class="lg:col-span-4 space-y-6">
-      <div id="resultsCard" class="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-6 sticky top-6">
+      <div id="resultsCard" class="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-6 lg:sticky lg:top-6">
         <div class="flex items-center justify-between border-b border-slate-100 pb-4">
           <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
             <i data-lucide="award" class="w-5 h-5 theme-text"></i> Cumulative OGPA
@@ -304,13 +326,17 @@
             <span class="text-slate-500">ID Number:</span>
             <span id="summaryId" class="font-semibold text-slate-800">-</span>
           </div>
-          <div id="printRowDegree" class="flex justify-between">
+          <div id="printRowDegree" class="flex justify-between gap-3">
             <span class="text-slate-500">Programme:</span>
-            <span id="summaryDegree" class="font-semibold text-slate-800">-</span>
+            <span id="summaryDegree" class="font-semibold text-slate-800 text-right">-</span>
           </div>
           <div id="printRowBatch" class="flex justify-between">
             <span class="text-slate-500">Batch:</span>
             <span id="summaryBatch" class="font-semibold text-slate-800">-</span>
+          </div>
+          <div class="print-only justify-between">
+            <span class="text-slate-500">Generated on:</span>
+            <span id="summaryDate" class="font-semibold text-slate-800">-</span>
           </div>
         </div>
 
@@ -334,6 +360,28 @@
             <span class="text-slate-500">Total Earned Credit Points:</span>
             <span class="font-semibold text-slate-800" id="totalPointsDisplay">0.00</span>
           </div>
+          <div class="flex justify-between pt-3">
+            <span class="text-slate-500">Courses to Clear (RA):</span>
+            <span class="font-semibold" id="arrearsDisplay">0</span>
+          </div>
+        </div>
+
+        <!-- Target OGPA planner -->
+        <div class="no-print space-y-2 border-t border-slate-200 pt-4">
+          <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="target" class="w-4 h-4 theme-text"></i> Target OGPA Planner
+          </h4>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <label for="targetOgpaInput" class="block text-slate-500 mb-1">Target OGPA</label>
+              <input type="number" id="targetOgpaInput" step="0.01" min="0" max="10" placeholder="e.g. 8.50" oninput="updateTargetPlanner()" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-center font-semibold">
+            </div>
+            <div>
+              <label for="remainingCreditsInput" class="block text-slate-500 mb-1">Credits left</label>
+              <input type="number" id="remainingCreditsInput" step="0.5" min="0" placeholder="e.g. 20" oninput="updateTargetPlanner()" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-center font-semibold">
+            </div>
+          </div>
+          <p id="targetResult" class="text-xs text-slate-500">Enter a target and the credits you still have to take.</p>
         </div>
 
         <div class="pt-2 flex flex-col gap-2 no-print">
@@ -343,6 +391,18 @@
           <button onclick="copySummary()" class="w-full py-2.5 px-3 bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl hover:bg-slate-200 transition flex items-center justify-center gap-1.5">
             <i data-lucide="copy" class="w-4 h-4"></i> Copy Text Summary
           </button>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="exportCSV()" class="py-2 px-2 bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold rounded-xl hover:bg-slate-200 transition flex items-center justify-center gap-1">
+              <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> CSV
+            </button>
+            <button onclick="exportProfileJSON()" class="py-2 px-2 bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold rounded-xl hover:bg-slate-200 transition flex items-center justify-center gap-1">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Backup
+            </button>
+            <button onclick="document.getElementById('importFileInput').click()" class="py-2 px-2 bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold rounded-xl hover:bg-slate-200 transition flex items-center justify-center gap-1">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i> Restore
+            </button>
+          </div>
+          <input type="file" id="importFileInput" accept="application/json,.json" class="hidden" onchange="importProfileJSON(this)">
         </div>
       </div>
     </div>
@@ -360,190 +420,1313 @@
   </footer>
 
   <script>
+    /* ---------- State ---------- */
+    const GUEST_KEY = 'tnau_guest_store_v1';
+    const ACTIVE_KEY = 'tnau_active_profile_v1';
+    const DEFAULT_PROFILE_ID = 'prof_default';
+
     let semesterCounter = 0;
-    let passMarkThreshold = 50; 
+    let passMarkThreshold = 50;
     let currentUser = null;
-    let activeProfileId = 'prof_default';
-    let cloudDataStore = {
-      'prof_default': { name: 'Default Student', id: '', semesters: [] }
-    };
+    let activeProfileId = DEFAULT_PROFILE_ID;
+    let isLoading = false;      // true while the DOM is being rebuilt from stored data
+    let saveTimer = null;
+    let unsubscribeCloud = null;
+    const dirtyProfiles = new Set();     // profiles changed locally and not yet written to the cloud
+    const deletedProfiles = new Set();   // profiles deleted locally and not yet removed from the cloud
+    let cloudDataStore = defaultStore();
 
     const themePresets = {
       emerald: { primary: '#065f46', hover: '#047857', light: '#ecfdf5', border: '#a7f3d0', text: '#065f46' },
-      ocean: { primary: '#1e40af', hover: '#1d4ed8', light: '#eff6ff', border: '#bfdbfe', text: '#1e40af' },
-      purple: { primary: '#6b21a8', hover: '#7e22ce', light: '#faf5ff', border: '#e9d5ff', text: '#6b21a8' },
-      dark: { primary: '#0f172a', hover: '#1e293b', light: '#f8fafc', border: '#cbd5e1', text: '#0f172a' }
+      ocean:   { primary: '#1e40af', hover: '#1d4ed8', light: '#eff6ff', border: '#bfdbfe', text: '#1e40af' },
+      purple:  { primary: '#6b21a8', hover: '#7e22ce', light: '#faf5ff', border: '#e9d5ff', text: '#6b21a8' },
+      dark:    { primary: '#0f172a', hover: '#1e293b', light: '#f8fafc', border: '#cbd5e1', text: '#0f172a' }
     };
 
+    const AUTH_ERRORS = {
+      'auth/invalid-credential': 'Incorrect email or password.',
+      'auth/wrong-password': 'Incorrect email or password.',
+      'auth/user-not-found': 'No account found with that email.',
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/email-already-in-use': 'An account with this email already exists. Try signing in.',
+      'auth/weak-password': 'Password must be at least 6 characters.',
+      'auth/too-many-requests': 'Too many attempts. Please wait a bit and try again.',
+      'auth/network-request-failed': 'Network error. Check your connection and retry.',
+      'auth/unauthorized-domain': 'This website address is not authorised for login yet. In Firebase Console, open Authentication, then Settings, then Authorized domains, and add this site\'s domain.',
+      'auth/operation-not-allowed': 'Email/password sign-in is switched off. In Firebase Console, open Authentication, then Sign-in method, and enable Email/Password.',
+      'auth/user-disabled': 'This account has been disabled.'
+    };
+
+    /* ---------- Syllabus catalogue ----------
+       One entry per curriculum set. A batch start year picks the set (from..to inclusive);
+       programmes inside a set map semester (Roman numeral) -> [code, title, credit hours].
+       To add a programme, add another key under `programmes` using the exact dropdown label. */
+    const CURRICULA = [
+      { id: "up to 2024", label: "Syllabus for batches up to 2024", from: 0, to: 2024, programmes: {
+        "B.Sc. (Hons.) Agriculture": {
+          "I": [
+            ["AEX 101", "Rural Sociology and Educational Psychology", "2+0"],
+            ["AGR 101", "Fundamentals of Agronomy and Agricultural Heritage", "1+1"],
+            ["BIC 101", "Fundamentals of Plant Biochemistry", "2+1"],
+            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
+            ["FOR 111", "Introduction to Forestry and Agroforestry", "1+1"],
+            ["HOR 111", "Fundamentals of Horticulture", "1+1"],
+            ["MAT 111", "Elementary Mathematics", "1+1"],
+            ["PBG 101", "Introduction to Agricultural Botany", "1+1"]
+          ],
+          "II": [
+            ["AEC 102", "Fundamentals of Agricultural Economics", "1+1"],
+            ["AEX 102", "Fundamentals of Agricultural Extension Education", "2+1"],
+            ["AGM 101", "Fundamentals of Microbiology", "2+1"],
+            ["AGR 102", "Introductory Agro-meteorology and Climate Change", "1+1"],
+            ["CRP 101", "Fundamentals of Crop Physiology", "2+1"],
+            ["FSN 111", "Principles of Food Science and Nutrition", "1+1"],
+            ["HOR 112", "Production Technology for Fruit and Plantation Crops", "1+1"],
+            ["RSG 101", "Geo-informatics for Precision Farming", "1+0"],
+            ["SWE 112", "Soil and Water Conservation Engineering", "1+1"]
+          ],
+          "III": [
+            ["AEC 201", "Farm Management, Production and Resource Economics", "1+1"],
+            ["AEN 201", "Fundamentals of Entomology", "2+1"],
+            ["AGR 201", "Crop Production Technology - I (Kharif Crops)", "1+1"],
+            ["AMP 201", "Livestock and Poultry Management", "2+1"],
+            ["ENS 201", "Environmental Studies and Disaster Management", "2+1"],
+            ["FMP 211", "Farm Machinery and Power", "1+1"],
+            ["HOR 211", "Production Technology for Vegetables and Spices", "1+1"],
+            ["PAT 201", "Fundamentals of Plant Pathology", "2+1"],
+            ["SAC 201", "Soil Resource Inventory", "1+1"],
+            ["SST 201", "Principles of Seed Technology", "2+1"]
+          ],
+          "IV": [
+            ["AEN 202", "Management of Beneficial and Harmful Insects", "2+1"],
+            ["AEX 201", "Communication Skills and Personality Development", "1+1"],
+            ["AGR 203", "Crop Production Technology - II (Rabi Crops)", "1+1"],
+            ["AGR 204", "Farming System and Sustainable Agriculture", "1+1"],
+            ["ANM 201", "Introductory Nematology", "0+1"],
+            ["ERG 211", "Renewable Energy and Green Technology", "1+1"],
+            ["HOR 212", "Production Technology for Ornamental Crops, MAP and Landscaping", "1+1"],
+            ["NST 201", "Fundamentals and Applications of Nanotechnology", "1+0"],
+            ["PAT 202", "Principles of Integrated Plant Disease Management", "1+1"],
+            ["PBG 201", "Fundamentals of Genetics", "2+1"],
+            ["SAC 202", "Problematic Soils and their Management", "2+0"],
+            ["STA 201", "Statistical Methods", "1+1"]
+          ],
+          "V": [
+            ["AEC 301", "Agricultural Marketing, Trade and Prices", "2+1"],
+            ["AEN 301", "Pests of Field Crops and Stored Produces and their Management", "1+1"],
+            ["AGM 301", "Agricultural Microbiology", "1+1"],
+            ["AGR 301", "Practical Crop Production - I (Kharif Crops)", "0+2"],
+            ["AGR 302", "Rainfed Agriculture and Watershed Management", "1+1"],
+            ["APE 311", "Protected Cultivation and Secondary Agriculture", "1+1"],
+            ["ARM 301", "Entrepreneurship Development and Business Management", "1+1"],
+            ["HOR 311", "Post Harvest Management and Value Addition of Fruits and Vegetable Crops", "1+1"],
+            ["PAT 301", "Diseases of Field and Horticultural Crops and their Management - I", "1+1"],
+            ["PBG 301", "Fundamentals of Plant Breeding", "2+1"],
+            ["SAC 301", "Manures, Fertilizers and Soil Fertility Management", "2+1"]
+          ],
+          "VI": [
+            ["ABT 301", "Plant Biotechnology", "2+1"],
+            ["AEC 302", "Agricultural Finance and Co-operation", "2+1"],
+            ["AEN 302", "Pests of Horticultural Crops and Stored Produces and their Management", "1+1"],
+            ["AGR 303", "Practical Crop Production - II (Rabi Crops)", "0+2"],
+            ["AGR 304", "Principles of Organic Farming", "1+1"],
+            ["COM 311", "Agro Informatics", "1+1"],
+            ["ENS 301", "Environmental Pollution and Management", "1+1"],
+            ["PAT 302", "Diseases of Field and Horticultural Crops and their Management - II", "2+1"],
+            ["PBG 302", "Crop Improvement", "2+1"],
+            ["SAC 353", "Soilless Crop Production", "1+1"]
+          ],
+          "VII": [
+            ["AEX 401", "Rural Agricultural Work Experience and Agro-industrial Attachment (Student READY)", "0+20"]
+          ],
+          "VIII": [
+            ["AEC 451", "Data Analytical Skills for Market Research", "0+10"],
+            ["APW 401", "Project Report Preparation, Presentation and Evaluation", "0+1"],
+            ["ARM 453", "Agricultural Export and Import Management", "0+10"]
+          ]
+        },
+        "B.Sc. (Hons.) Horticulture": {
+          "I": [
+            ["AGM 121", "Introductory Microbiology", "2+1"],
+            ["BIC 101", "Fundamentals of Plant Biochemistry", "2+1"],
+            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
+            ["FSC 101", "Principles of Horticulture", "2+1"],
+            ["FSC 102", "Plant Propagation and Nursery Management", "1+1"],
+            ["MAT 111", "Elementary Mathematics", "1+1"],
+            ["SAC 101", "Fundamentals of Soil Science", "2+1"],
+            ["VSC 101", "Botany of Horticultural Crops", "1+1"]
+          ],
+          "II": [
+            ["AGR 102", "Introductory Agro-meteorology and Climate Change", "1+1"],
+            ["CRP 112", "Introductory Crop Physiology", "2+1"],
+            ["FSC 103", "Tropical and Subtropical Fruits", "2+1"],
+            ["FSN 121", "Fundamentals of Food Technology", "1+1"],
+            ["PBG 112", "Principles of Genetics and Cytogenetics", "2+1"],
+            ["PSM 101", "Spices and Condiments", "1+1"],
+            ["SAC 102", "Irrigation Water Quality Assessment", "0+1"],
+            ["SWE 112", "Soil and Water Conservation Engineering", "1+1"],
+            ["VSC 102", "Tropical and Subtropical Vegetable Crops", "2+1"]
+          ],
+          "III": [
+            ["AEN 201", "Fundamentals of Entomology", "2+1"],
+            ["AMP 201", "Livestock and Poultry Management", "2+1"],
+            ["ENS 201", "Environmental Studies and Disaster Management", "2+1"],
+            ["FLG 201", "Commercial Floriculture", "2+1"],
+            ["FSC 201", "Temperate Fruit Crops", "1+0"],
+            ["PAT 211", "Principles of Plant Pathology", "2+1"],
+            ["PBG 211", "Principles of Plant Breeding", "2+1"],
+            ["PSM 201", "Plantation Crops", "1+1"],
+            ["SST 221", "Principles of Seed Production and Quality Regulations in Horticultural Crops", "1+1"],
+            ["VSC 201", "Temperate Vegetable Crops", "1+0"],
+            ["VSC 202", "Crop Production - I", "0+1"]
+          ],
+          "IV": [
+            ["AEC 202", "Economics and Marketing", "2+1"],
+            ["AEN 212", "Apiculture, Sericulture and Lac Culture", "1+1"],
+            ["AEX 201", "Communication Skills and Personality Development", "1+1"],
+            ["AGR 211", "Weed and Water Management in Horticultural Crops", "1+1"],
+            ["FLG 202", "Ornamental Horticulture", "1+1"],
+            ["FMP 211", "Farm Machinery and Power", "1+1"],
+            ["FSC 202", "Breeding of Fruit and Plantation Crops", "1+1"],
+            ["FSC 203", "Dryland Horticulture", "1+1"],
+            ["NST 201", "Fundamentals and Applications of Nanotechnology", "1+0"],
+            ["PSM 202", "Medicinal and Aromatic Crops", "1+1"],
+            ["STA 201", "Statistical Methods", "1+1"],
+            ["VSC 203", "Crop Production - II (Vegetables -Transplanted Crops)", "0+1"]
+          ],
+          "V": [
+            ["AEN 311", "Insect Pests of Vegetable, Ornamental and Spice Crops", "1+1"],
+            ["AGR 311", "Introduction to Major Field Crops", "1+1"],
+            ["ANM 311", "Nematode Pests of Horticultural Crops and their Management", "1+1"],
+            ["ARM 301", "Entrepreneurship Development and Business Management", "1+1"],
+            ["CRP 321", "Growth and Development of Horticultural Crops", "1+1"],
+            ["FLG 301", "Principles of Landscape Architecture", "1+1"],
+            ["FOR 311", "Introductory Agro-Forestry", "0+1"],
+            ["FSN 311", "Processing of Horticultural Crops", "1+1"],
+            ["PAT 311", "Diseases of Vegetable, Ornamental and Spice Crops", "1+1"],
+            ["SAC 301", "Manures, Fertilizers and Soil Fertility Management", "2+1"],
+            ["VSC 301", "Breeding of Vegetable, Tuber, Spice, Flower and Medicinal Crops", "2+1"]
+          ],
+          "VI": [
+            ["ABT 312", "Biotechnology of Horticultural Crops", "2+1"],
+            ["AEN 312", "Insect Pests of Fruit, Plantation, Medicinal and Aromatic Crops", "1+1"],
+            ["AEX 311", "Fundamentals of Extension Education", "2+1"],
+            ["AGM 321", "Soil and Applied Microbiology", "1+1"],
+            ["AGR 313", "Organic Farming", "1+1"],
+            ["ARM 324", "Horti-Business Management", "2+0"],
+            ["COM 311", "Agro-informatics", "1+1"],
+            ["FSC 301", "Post Harvest Management of Horticultural Crops", "2+1"],
+            ["PAT 312", "Diseases of Fruits, Plantations, Medicinal and Aromatic Crops", "1+1"],
+            ["SST 321", "Seed Production Techniques in Horticultural Crops", "1+1"],
+            ["VSC 302", "Precision Farming and Protected Cultivation", "2+1"]
+          ],
+          "VII": [
+            ["AEX 411", "Rural Horticultural Work Experience and Agro-industrial Attachment (Student READY)", "0+20"]
+          ],
+          "VIII": [
+            ["HOR 401", "Project Work", "0+1"],
+            ["HOR 458", "Commercial Ornamental and Medicinal Plants Production", "0+10"],
+            ["PAT 452", "Commercial Mushroom Production", "0+10"]
+          ]
+        },
+        "B.Sc. (Hons.) Agri Business Management": {
+          "I": [
+            ["MAT 111", "Elementary Mathematics", "1+1"],
+            ["ENG 102", "English for Business Communication", "1+1"],
+            ["ENS 101", "Environmental Sciences and Disaster management", "2+1"],
+            ["ARM 101", "Introduction to Agribusiness Management", "2+0"],
+            ["ARM 102", "Agricultural Marketing and Price Analysis", "2+1"],
+            ["ARM 103", "Fundamentals of Human Resource Management", "2+1"],
+            ["ARM 104", "Introduction to Managerial Economics", "2+1"]
+          ],
+          "II": [
+            ["SAC 101", "Fundamentals of Soil Science", "2+1"],
+            ["FSN 111", "Principles of Food Science and Nutrition", "1+1"],
+            ["AGR 114", "Crop Production Technology", "1+1"],
+            ["HOR 112", "Production Technology of Fruit and Plantation Crops", "1+1"],
+            ["SWE 112", "Soil and Water Conservation Engineering", "1+1"],
+            ["ARM 105", "Introduction to Operations Management", "2+1"],
+            ["ARM 106", "Business Communication", "0+1"],
+            ["ARM 107", "Management Accounting", "1+1"],
+            ["ARM 108", "Fundamentals of Marketing Management", "2+1"],
+            ["ARM 109", "Introduction to Organizational Behaviour", "2+0"]
+          ],
+          "III": [
+            ["AEC 201", "Farm Management, Production and Resource Economics", "1+1"],
+            ["PBG 214", "Principles of Genetics and Methods of Plant Breeding", "2+1"],
+            ["AEN 221", "Fundamentals of Entomology & Pest management", "2+1"],
+            ["AGM 221", "General and Applied Microbiology", "2+1"],
+            ["FMP 211", "Farm Power and Machinery", "1+1"],
+            ["AMP 201", "Livestock and Poultry Management", "2+1"],
+            ["SST 201", "Principles of Seed Technology", "2+1"],
+            ["HOR 211", "Production Technology of Vegetables and Spices", "1+1"],
+            ["ARM 201", "Fundamentals of Financial Management", "2+1"]
+          ],
+          "IV": [
+            ["PAT 222", "Introductory Plant Pathology", "1+1"],
+            ["MAT 222", "Operations Research", "2+1"],
+            ["STA 201", "Statistical Methods", "1+1"],
+            ["HOR 212", "Production Technology of ornamental crops, MAP and landscaping", "1+1"],
+            ["AGR 204", "Farming System and Sustainable agriculture", "1+1"],
+            ["FOR 211", "Forest Products and Commercial Utilization", "1+1"],
+            ["ERG 211", "Renewable Energy & Green technology", "1+1"],
+            ["ARM 203", "Agricultural Marketing Institutions", "2+1"],
+            ["ARM 204", "Agribusiness Environment Analysis", "1+1"],
+            ["ARM 205", "Financial Services", "2+0"],
+            ["ARM 206", "Rural Marketing", "1+1"],
+            ["ARM 207", "Microfinance", "1+0"]
+          ],
+          "V": [
+            ["ABT 301", "Plant Biotechnology", "2+1"],
+            ["AEC 303", "Econometric Modeling", "1+1"],
+            ["TIP 301", "International Trade", "1+1"],
+            ["ARM 302", "Project Management", "2+1"],
+            ["ARM 303", "Entrepreneurship and Small Business Management", "2+1"],
+            ["ARM 304", "Supply Chain Management", "2+0"],
+            ["ARM 305", "E- Business", "2+0"],
+            ["ARM 306", "Enterprise Resource Planning", "2+1"],
+            ["ARM 307", "Business Analytics", "1+1"],
+            ["ARM 308", "Introduction to Business Law and Taxation", "2+0"]
+          ],
+          "VI": [
+            ["SAC 355", "Crop and Pesticide Chemistry", "1+1"],
+            ["PAT 321", "Diseases of Crop Plants and their Management", "1+1"],
+            ["COM 311", "Applied Agro-Informatics", "1+1"],
+            ["APE 311", "Post Harvest and Food Engineering", "1+1"],
+            ["TIP 302", "Intellectual Property Rights", "1+0"],
+            ["AGR 304", "Principles of Organic Farming", "1+1"],
+            ["AEX 313", "Fundamentals of Extension Education", "2+1"],
+            ["ARM 309", "Introduction to Capital and Commodity Markets", "2+1"],
+            ["ARM 310", "Retailing Management", "2+1"],
+            ["ARM 311", "Business Research Methods", "2+1"],
+            ["NCC 101", "National Cadet Corps", "0+1"],
+            ["OPT", "Optional course", "1+1"]
+          ],
+          "VII": [
+            ["ABWE", "Agribusiness Work Experience and Industry Internship (ABWE &II)", "0+20"],
+            ["ARM 401", "Project Report Preparation, Presentation and Evaluation", "0+1"]
+          ],
+          "VIII": [
+            ["ELP 1", "Module-I", "0+10"],
+            ["ELP 2", "Module-II", "0+10"]
+          ]
+        },
+        "B.Tech. (Agricultural Engineering)": {
+          "I": [
+            ["AGR 111", "Principles of Agronomy", "1+1"],
+            ["BAE 101", "Surveying and Leveling", "1+2"],
+            ["BAE 102", "Engineering Mechanics", "2+1"],
+            ["BAE 103", "Engineering Drawing", "0+2"],
+            ["MAT 103", "Engineering Mathematics - I", "2+1"],
+            ["PHY 101", "Engineering Physics", "2+1"],
+            ["SAC 111", "Principles of Soil Science", "2+1"],
+            ["SAC 121", "Engineering Chemistry", "1+1"]
+          ],
+          "II": [
+            ["BAE 104", "Strength of Materials", "1+1"],
+            ["BAE 105", "Soil Mechanics", "1+1"],
+            ["BAE 106", "Workshop Technology and Practices", "1+2"],
+            ["BAE 107", "Theory of Machines", "1+1"],
+            ["BAE 108", "Heat and Mass Transfer", "1+1"],
+            ["COM 107", "Web Designing and Internet Applications", "1+1"],
+            ["ENS 102", "Environmental Sciences and Disaster Management", "2+1"],
+            ["HOR 113", "Principles of Horticultural Crops and Plant Protection", "1+1"],
+            ["MAT 104", "Engineering Mathematics - II", "2+1"]
+          ],
+          "III": [
+            ["BAE 201", "Theory of Structures", "1+1"],
+            ["BAE 202", "Fluid Mechanics and Open Channel Hydraulics", "2+1"],
+            ["BAE 203", "Machine Design", "1+1"],
+            ["BAE 204", "Refrigeration and Air Conditioning", "1+1"],
+            ["BAE 205", "Electrical Machines and Power Utilization", "2+1"],
+            ["BAE 206", "Thermodynamics", "2+1"],
+            ["COM 211", "Computer Programming and Data Structures", "1+1"],
+            ["MAT 202", "Engineering Mathematics - III", "2+1"],
+            ["PFE 201", "Engineering Properties of Agricultural Produce", "1+1"],
+            ["SWE 201", "Watershed Hydrology", "1+1"]
+          ],
+          "IV": [
+            ["AEX 201", "Communication Skills and Personality Development", "1+1"],
+            ["BAE 207", "Applied Electronics and Instrumentation", "2+1"],
+            ["BAE 208", "Building Construction and Cost Estimation", "2+1"],
+            ["BAE 209", "Auto CAD Applications", "0+2"],
+            ["FMP 201", "Tractor and Automotive Engines", "2+1"],
+            ["IDE 201", "Irrigation Engineering", "2+1"],
+            ["IDE 202", "Groundwater, Wells and Pumps", "2+1"],
+            ["PFE 202", "Post-Harvest Engineering of Cereals, Pulses and Oil Seeds", "2+1"],
+            ["REE 201", "Fundamentals of Renewable Energy Sources - Solar and Wind Energy", "2+1"]
+          ],
+          "V": [
+            ["ARM 301", "Entrepreneurship Development and Business Management", "1+1"],
+            ["FMP 301", "Tractor Systems and Controls", "2+1"],
+            ["FMP 302", "Farm Machinery and Equipment - I", "2+1"],
+            ["PFE 301", "Post Harvest Engineering of Horticultural Crops", "1+1"],
+            ["PFE 302", "Dairy and Food Engineering", "2+1"],
+            ["REE 301", "Alternate Renewable Power Sources", "2+1"],
+            ["SWE 301", "Soil and Water Conservation Engineering", "2+1"],
+            ["SWE 302", "Watershed Planning and Management", "1+1"]
+          ],
+          "VI": [
+            ["AGE 302", "Project Planning and Report Writing - I (Students READY)", "0+5"],
+            ["FMP 303", "Farm Machinery and Equipment - II", "2+1"],
+            ["FMP 304", "Tractor and Farm Machinery Operation and Maintenance", "0+2"],
+            ["IDE 301", "Drainage Engineering", "1+1"],
+            ["IDE 302", "Sprinkler and Micro Irrigation Systems", "1+1"],
+            ["PFE 303", "Agricultural Structures and Environmental Control", "2+1"],
+            ["REE 302", "Bio-energy Systems: Design and Applications", "2+1"],
+            ["SWE 303", "Water Harvesting and Soil Conservation Structures", "2+1"]
+          ],
+          "VII": [
+            ["AGE 401", "Project Planning and Report Writing- II (Student READY)", "0+5"],
+            ["AGE 402", "Experiential Learning on Campus (Student READY)", "0+10"],
+            ["FMP 402", "Farm Machinery Design and Production", "2+1"],
+            ["REE 402", "Waste and By-Products Utilization", "2+1"],
+            ["SWE 401", "Remote Sensing and GIS Applications", "2+1"]
+          ],
+          "VIII": [
+            ["AGE 201", "In-Plant Training - I (Students READY)", "0+2"],
+            ["AGE 301", "In-Plant Training - II (Students READY)", "0+2"],
+            ["AGE 403", "Industrial Attachment and Internship (Student READY)", "0+16"]
+          ]
+        },
+        "B.Tech. (Energy and Environmental Engineering)": {
+          "I": [
+            ["AGR 115", "Crop Production Technology", "2+1"],
+            ["AST 101", "Engineering Drawing and Graphics", "1+2"],
+            ["COM 102", "Computer Programming and Data Structures", "1+2"],
+            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
+            ["FMP 111", "Workshop Technology", "1+2"],
+            ["MAT 101", "Engineering Mathematics - I", "1+1"],
+            ["PHY 101", "Engineering Physics", "2+1"]
+          ],
+          "II": [
+            ["AST 102", "Principles of Engineering Mechanics", "1+1"],
+            ["BIC 102", "General Biochemistry", "2+1"],
+            ["ENS 102", "Environmental Sciences and Disaster Management", "2+1"],
+            ["FMP 112", "Basic Electrical Engineering", "2+1"],
+            ["FMP 113", "Thermodynamics", "2+1"],
+            ["FPE 102", "Heat and Mass Transfer", "2+1"],
+            ["MAT 102", "Engineering Mathematics - II", "1+1"],
+            ["SWE 111", "Field Surveying and Leveling", "2+1"]
+          ],
+          "III": [
+            ["AST 201", "Mechanics of Materials", "2+1"],
+            ["ERG 201", "Biochemical Engineering", "2+1"],
+            ["FMP 212", "Basic Electronics Engineering", "2+1"],
+            ["FMP 213", "Basic Theory of Machines", "2+1"],
+            ["FPE 202", "Refrigeration and Cold Chain", "2+1"],
+            ["MAT 203", "Differential Equations and Transform Theories", "2+1"],
+            ["RSG 202", "Remote Sensing and GIS in Environmental Applications", "2+1"],
+            ["SWE 211", "Fluid Mechanics", "2+1"]
+          ],
+          "IV": [
+            ["AEC 202", "Economics and Marketing", "2+1"],
+            ["AEX 201", "Communication Skills and Personality Development", "1+1"],
+            ["BAE 208", "Building Construction and Cost Estimation", "2+1"],
+            ["ERG 202", "Fossil Fuel Engineering", "2+0"],
+            ["FMP 214", "Instrumentation and Process Control", "2+1"],
+            ["FMP 215", "Machine Design and Drawing", "1+1"],
+            ["FOR 222", "Forest Energy Resources", "2+0"],
+            ["MAT 204", "Numerical Methods and Biostatistics", "2+1"],
+            ["NST 201", "Fundamentals and Applications of Nanotechnology", "1+0"],
+            ["SWE 212", "Sustainability and Green Engineering", "2+0"]
+          ],
+          "V": [
+            ["ARM 301", "Entrepreneurship Development and Business Management", "1+1"],
+            ["ERG 301", "Heat Power Engineering", "2+1"],
+            ["ERG 302", "Thermo Chemical Conversion Technology", "2+1"],
+            ["ERG 303", "Solar Energy Engineering", "2+1"],
+            ["ERG 304", "Biochemical Conversion Technology", "2+1"],
+            ["STA 301", "Engineering Statistics", "1+1"],
+            ["SWE 311", "Water Pollution Control Engineering", "2+1"],
+            ["SWE 312", "Hydrology and Water Resources", "2+1"],
+            ["SWE 313", "Public Health Engineering", "2+1"]
+          ],
+          "VI": [
+            ["EEE 301", "Research Project - I (Students READY)", "0+2"],
+            ["EEE 302", "Semesteresterinar (Students READY)", "0+1"],
+            ["ENS 312", "Environmental Chemistry", "2+1"],
+            ["ERG 305", "Wind Energy Systems", "2+1"],
+            ["ERG 306", "Energy Auditing and Management", "2+1"],
+            ["ERG 307", "Power Plant Engineering", "2+1"],
+            ["SWE 314", "Wastewater Engineering", "2+1"],
+            ["SWE 315", "Solid and Hazardous Waste Management", "2+0"],
+            ["SWE 316", "Air Pollution and Control Engineering", "2+0"],
+            ["SWE 317", "Environmental Impact Assessment", "1+1"]
+          ],
+          "VII": [
+            ["ARM 411", "Project Preparation and Management", "1+1"],
+            ["EEE 401", "Research Project - II (Student READY)", "0+3"],
+            ["ERG 401", "Emerging Technologies in Energy and Environmental Engineering", "2+0"],
+            ["EXP 403", "Experiential Learning - I (Student READY) - Renewable Power Generation Technologies", "0+7"],
+            ["EXP 404", "Experiential Learning - II (Student READY) - Pollution Management Engineering", "0+7"]
+          ],
+          "VIII": [
+            ["EEE 404", "Industrial Internship Programme (Students READY)", "0+20"]
+          ]
+        },
+        "B.Tech. (Food Technology)": {
+          "I": [
+            ["AGR 115", "Crop Production Technology", "2+1"],
+            ["AST 101", "Engineering Drawing and Graphics", "1+2"],
+            ["COM 102", "Computer Programming and Data Structures", "1+2"],
+            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
+            ["FMP 111", "Workshop Technology", "1+2"],
+            ["FPE 101", "Fundamentals of Food Processing", "2+1"],
+            ["MAT 101", "Engineering Mathematics - I", "1+1"]
+          ],
+          "II": [
+            ["BIC 112", "Food Chemistry of Macronutrients", "2+1"],
+            ["COM 103", "ICT Applications in Food Industry", "1+2"],
+            ["ENS 102", "Environmental Sciences and Disaster Management", "2+1"],
+            ["FMP 112", "Basic Electrical Engineering", "2+1"],
+            ["FMP 113", "Thermodynamics", "2+1"],
+            ["FPE 102", "Heat and Mass Transfer", "2+1"],
+            ["FSN 112", "Food Additives and Preservatives", "1+1"],
+            ["MAT 102", "Engineering Mathematics - II", "1+1"]
+          ],
+          "III": [
+            ["AGM 223", "Food Microbiology", "2+1"],
+            ["BIC 211", "Food Chemistry of Micronutrients", "2+1"],
+            ["FMP 212", "Basic Electronics Engineering", "2+1"],
+            ["FPE 201", "Post Harvest Engineering", "2+1"],
+            ["FPE 202", "Refrigeration and Cold Chain", "2+1"],
+            ["FPE 203", "Unit Operations in Food Processing - I", "2+1"],
+            ["MAT 201", "Statistical Methods and Numerical Analysis", "2+1"],
+            ["SWE 211", "Fluid Mechanics", "2+1"]
+          ],
+          "IV": [
+            ["ABT 211", "Food Biotechnology and Its Applications", "2+1"],
+            ["AEX 201", "Communication Skills and Personality Development", "1+1"],
+            ["AMP 211", "Processing Technology of Dairy Products", "1+1"],
+            ["ARM 211", "Business Management and Economics", "2+0"],
+            ["BIC 212", "Food Biochemistry and Nutrition", "2+1"],
+            ["FMP 214", "Instrumentation and Process Control", "2+1"],
+            ["FPE 204", "Unit Operations in Food Processing - II", "2+1"],
+            ["FPE 205", "Processing Technology of Cereals", "2+1"],
+            ["FPE 206", "Processing Technology of Legumes and Oilseeds Products", "2+1"]
+          ],
+          "V": [
+            ["AGM 313", "Industrial Microbiology", "2+1"],
+            ["ARM 321", "Entrepreneurship Development", "2+1"],
+            ["FPE 301", "Processing Technology of Liquid Milk", "2+1"],
+            ["FPE 302", "Processing of Meat and Poultry Products", "2+1"],
+            ["FPE 303", "Food Process Equipment Design", "2+1"],
+            ["FPE 304", "Processing of Spices and Plantation Crops", "2+1"],
+            ["FSN 314", "Processing Technology of Fruits and Vegetables", "2+1"],
+            ["FSN 315", "Bakery, Confectionery and Snack Products", "2+1"]
+          ],
+          "VI": [
+            ["ARM 312", "Marketing Management and International Trade", "2+0"],
+            ["BIC 311", "Instrumental Techniques in Food Analysis", "1+1"],
+            ["FPE 305", "Food Packaging Technology and Equipment", "2+1"],
+            ["FPE 306", "Processing of Fish and Marine Products", "2+1"],
+            ["FPE 307", "Food Storage Engineering", "2+1"],
+            ["FPE 308", "Food Plant Sanitation", "1+1"],
+            ["FPE 309", "Research Project - I (Students READY)", "0+2"],
+            ["FSN 316", "Processing Technology of Beverages", "2+1"],
+            ["FSN 317", "Sensory Evaluation and Food Products", "2+1"]
+          ],
+          "VII": [
+            ["ARM 411", "Project Preparation and Management", "1+1"],
+            ["EXP 401", "Experiential Learning - I (Student READY) - Processing of Dairy, Fruits and Vegetable Products", "0+7"],
+            ["EXP 402", "Experiential Learning - II (Student READY) - Processing of Grains, Bakery and Confectionery Products", "0+7"],
+            ["FPE 401", "Research Project - II (Student READY)", "0+3"],
+            ["FPE 402", "Seminar (Student READY)", "0+1"],
+            ["FSN 411", "Food Quality, Safety Standards and Certification", "2+0"]
+          ],
+          "VIII": [
+            ["FPE 405", "Industrial Internship (Students READY)", "0+20"]
+          ]
+        },
+        "B.Tech. (Agricultural Information Technology)": {
+          "I": [
+            ["COM 131", "Fundamentals of Computers", "1+1"],
+            ["COM 132", "Programming in C", "2+1"],
+            ["COM 133", "Operating System", "2+1"],
+            ["ENS 102", "Environmental Sciences and Disaster Management", "2+1"],
+            ["PHY 152", "Basic Electronics", "2+1"],
+            ["MAT 103", "Engineering Mathematics I", "2+1"],
+            ["SAC 101", "Fundamentals of Soil Science", "2+1"],
+            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"]
+          ],
+          "II": [
+            ["COM 134", "Data Structures and Algorithms using C", "2+1"],
+            ["COM 135", "Object Oriented Programming", "2+1"],
+            ["COM 136", "Computer Organization and Architecture", "2+1"],
+            ["SWE 112", "Soil and Water Conservation Engineering", "1+1"],
+            ["AGR 114", "Crop Production Technology", "1+1"],
+            ["CRP 111", "Plant Physiology", "2+1"],
+            ["AEX 102", "Fundamentals of Agricultural Extension Education", "2+1"],
+            ["MAT 104", "Engineering Mathematics II", "2+1"]
+          ],
+          "III": [
+            ["COM 231", "Database Management Systems", "2+1"],
+            ["COM 232", "Software Engineering", "2+0"],
+            ["COM 233", "Computer Networks", "2+1"],
+            ["COM 234", "R Programming", "2+1"],
+            ["AEN 221", "Fundamentals of Entomology and Pest Management", "2+1"],
+            ["BTH 221", "Production Technology of Commercial Horticulture Crops", "1+1"],
+            ["RSG 231", "Remote Sensing and its Applications in Agriculture", "2+1"],
+            ["MAT 202", "Engineering Mathematics III", "2+1"]
+          ],
+          "IV": [
+            ["COM 235", "Web Technology", "1+2"],
+            ["COM 236", "Data Mining and Warehousing", "2+1"],
+            ["COM 237", "Multimedia and Animation", "2+1"],
+            ["COM 238", "Java Programming", "2+1"],
+            ["AMT 201", "Fundamentals of Agricultural Meteorology", "2+1"],
+            ["AEC 202", "Economics and Marketing", "2+1"],
+            ["RSG 232", "Geographic Information System and its Applications in Agriculture", "2+1"],
+            ["BAE 231", "Fundamentals of Agricultural Engineering", "2+1"],
+            ["STA 201", "Statistical Methods", "1+1"]
+          ],
+          "V": [
+            ["COM 331", "Mobile Computing and App Development", "2+1"],
+            ["COM 332", "Digital Image Processing", "2+1"],
+            ["COM 333", "Cyber Security", "2+0"],
+            ["COM 334", "Python Programming", "2+1"],
+            ["ARM 301", "Entrepreneurship Development and Business Management", "1+1"],
+            ["ARM 306", "Enterprise Resource Planning", "2+1"],
+            ["AEC 303", "Econometric Modelling", "1+1"],
+            ["FMP 331", "Basic Instrumentation and their Application in Automation", "1+1"],
+            ["STA 302", "Probability and Random Process", "2+1"]
+          ],
+          "VI": [
+            ["COM 335", "Artificial Intelligence and Machine Learning", "2+1"],
+            ["COM 336", "Internet of Things (IoT)", "2+1"],
+            ["COM 337", "Big Data Analytics", "2+1"],
+            ["COM 338", "Advanced Automation and Sensor Technology", "2+1"],
+            ["COM 339", "Cloud Computing", "2+1"],
+            ["ARM 309", "Introduction to Capital and Commodity Markets", "2+1"],
+            ["AMT 301", "Introduction to Crop Yield and Weather Forecasting Models", "1+1"],
+            ["TIP 301", "Intellectual Property Rights", "1+0"],
+            ["COM 340", "Research Project- I (Students READY)", "0+2"]
+          ],
+          "VII": [
+            ["COM 431", "Business Intelligence", "2+1"],
+            ["COM 433", "Research Project - II (Students READY)", "0+3"],
+            ["COM 434", "Seminar (Students READY)", "0+1"]
+          ],
+          "VIII": [
+            ["COM 445", "Internship (Students READY)", "0+20"]
+          ]
+        },
+        "B.Tech. (Biotechnology)": {
+          "I": [
+            ["MAT 112", "Basic Mathematics – I (Remedial course)", "2+1"],
+            ["BTB 101", "Introduction to Biotechnology", "2+1"],
+            ["BTB 102", "Cell Biology", "1+1"],
+            ["AGR 114", "Crop Production Technology", "1+1"],
+            ["PBG 111", "Basic Genetics", "2+1"],
+            ["FSN 112", "Food Science and Processing", "1+1"],
+            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"]
+          ],
+          "II": [
+            ["MAT 113", "Basic Mathematics – II (Remedial course)", "2+1"],
+            ["BTB 103", "Molecular Biology", "2+1"],
+            ["BIF 101", "Introductory Bioinformatics", "1+1"],
+            ["COM 112", "Information and Communication Technology", "1+1"],
+            ["BIC 102", "General Biochemistry", "2+1"],
+            ["AGM 111", "Microbiology", "2+1"],
+            ["SAC 101", "Fundamentals of Soil Science", "2+1"],
+            ["CRP 111", "Plant Physiology", "2+1"],
+            ["PHY 102", "Biophysics", "1+1"]
+          ],
+          "III": [
+            ["BTB 201", "Recombinant DNA Technology", "2+1"],
+            ["BTB 202", "Plant Tissue Culture", "1+1"],
+            ["BIF 211", "Computational Biology", "2+1"],
+            ["MAT 211", "Biomathematics", "2+1"],
+            ["AEN 221", "Fundamentals of Entomology and Pest Management", "2+1"],
+            ["PBG 212", "Classical and Molecular Cytogenetics", "1+1"],
+            ["PAT 251", "Fundamentals of Plant Pathology and Nematology and Disease management", "2+1"],
+            ["AGM 211", "Microbial Genetics", "1+1"],
+            ["BTH 221", "Production Technology of Horticultural Crops", "2+1"]
+          ],
+          "IV": [
+            ["BTB 203", "Electronics and Instrumentation in Biotechnology", "1+1"],
+            ["BTB 204", "Molecular Genetics", "2+0"],
+            ["BTB 205", "Plant Genetic Transformation", "1+1"],
+            ["BTB 206", "Bioprospecting of Molecules and Genes", "1+1"],
+            ["BTB 207", "Immunology", "2+1"],
+            ["BTB 208", "Fundamentals of Molecular Pharming and Biopharmaceuticals", "1+1"],
+            ["STA 201", "Statistical Methods", "1+1"],
+            ["AEC 202", "Economics and Marketing", "2+1"],
+            ["AEX 201", "Communication Skills and Personality Development", "1+1"],
+            ["NST 201", "Fundamentals and Applications of Nanotechnology", "1+0"],
+            ["PBG 213", "Basics of Plant Breeding", "2+1"],
+            ["SST 201", "Seed Biology, Production and Management", "1+1"]
+          ],
+          "V": [
+            ["BTB 301", "Molecular Marker Technology", "2+1"],
+            ["BTB 302", "Genomics and Proteomics", "1+1"],
+            ["BTB 303", "Molecular Ecology and Evolution", "1+1"],
+            ["BIC 301", "Enzymology and Enzyme Technologies", "2+1"],
+            ["AGM 311", "Food Biotechnology", "1+1"],
+            ["AMP 301", "Animal Biotechnology", "2+1"],
+            ["COM 311", "Agro-informatics", "1+1"],
+            ["PBG 311", "Breeding of Field and Horticultural Crops", "1+1"],
+            ["ARM 301", "Entrepreneurship Development and Business Management", "1+1"],
+            ["ENS 311", "Biodiversity and its Conservation", "1+1"]
+          ],
+          "VI": [
+            ["BTB 304", "Biosafety and Bioethics", "1+0"],
+            ["TIP 351", "Intellectual Property Rights and Applications in Biotechnology", "1+0"],
+            ["AGM 312", "Microbial Biotechnology", "1+1"],
+            ["STA 323", "Biostatistics", "1+1"],
+            ["BTB 305 / COM 313", "Plant Tissue Culture and its Applications / Programming for Bioinformatics", "2+1"],
+            ["BTB 306 / BIF 304", "Principles and Applications of Plant Genetic Transformation / Pharmacogenomics", "2+1"],
+            ["BTB 307 / BIF 307", "Applications of Genomics and Proteomics / Metabolomics and System Biology", "2+1"],
+            ["BTB 308 / BIF 351", "Molecular Breeding in Field Crops / Bioinformatics Tools and Biological Databases", "2+1"],
+            ["BTB 309 / BIF 352", "Molecular Breeding of Horticultural Crops and Forest Trees / Structural Bioinformatics", "2+1"],
+            ["BTB 310 / STA 325", "Epigenetics and Gene Regulation / Computational Methods for Data Analysis", "2+1"]
+          ],
+          "VII": [
+            ["BTB 401", "Student READY - Skill Development Module (Biotechnology Work experience in Industry and Institutes) - Plant biotechnology area", "0+20"]
+          ],
+          "VIII": [
+            ["BTB 403", "Student READY - Project Formulation, Execution and Presentation", "0+10"],
+            ["EDM", "Entrepreneurial Development Module - Biotechnology (Elective) / Bioinformatics (Elective)", "0+10"]
+          ]
+        },
+        "B.Tech. (Bioinformatics)": {
+          "I": [
+            ["COM 132", "Programming in C", "2+1"],
+            ["COM 133", "Operating System", "2+1"],
+            ["MAT 111", "Elementary Mathematics", "1+1"],
+            ["BTB 101", "Introduction to Biotechnology", "2+1"],
+            ["BTB 102", "Cell Biology", "1+1"],
+            ["PBG 111", "Basic Genetics", "2+1"],
+            ["AGR 114", "Crop Production Technology", "1+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["ENG 101", "Comprehension & Communication Skills in English", "1+1"]
+          ],
+          "II": [
+            ["BIF 101", "Introductory Bioinformatics", "1+1"],
+            ["BIF 102", "Biological databases", "1+1"],
+            ["BTB 103", "Molecular Biology", "2+1"],
+            ["COM 134", "Data Structures and Algorithms using C", "2+1"],
+            ["PHY 102", "Biophysics", "1+1"],
+            ["CRP 111", "Plant Physiology", "2+1"],
+            ["AGM 111", "Microbiology", "2+1"],
+            ["BIC 102", "General Biochemistry", "2+1"]
+          ],
+          "III": [
+            ["BIF 201", "Macromolecular structures", "2+0"],
+            ["BTB 201", "Recombinant DNA Technology", "2+1"],
+            ["COM 231", "Database Management systems", "2+1"],
+            ["COM 233", "Computer Networks", "2+1"],
+            ["COM 234", "R Programming", "2+1"],
+            ["PBG 212", "Classical and Molecular Cytogenetics", "1+1"],
+            ["AGM 211", "Microbial Genetics", "1+1"],
+            ["AEN 221", "Fundamentals of Entomology and Pest management", "2+1"],
+            ["PAT 251", "Fundamentals of Plant Pathology, Nematology and disease management", "2+1"]
+          ],
+          "IV": [
+            ["BIF 202", "Methods in Bioinformatics", "2+0"],
+            ["BTB 207", "Immunology", "2+1"],
+            ["COM 235", "Web Technology", "1+2"],
+            ["COM 236", "Data mining and warehousing", "2+1"],
+            ["COM 238", "JAVA Programming", "2+1"],
+            ["STA 201", "Statistical methods", "1+1"],
+            ["PBG 213", "Basics of Plant Breeding", "2+1"],
+            ["AEX 201", "Communication Skills and Personality Development", "1+1"],
+            ["AEC 202", "Economics and marketing", "2+1"],
+            ["NST 201", "Fundamentals and applications of Nanotechnology", "1+0"]
+          ],
+          "V": [
+            ["BIF 301", "Lab course on sequence analysis", "0+2"],
+            ["BIF 302", "Molecular Modeling and Simulation", "1+1"],
+            ["BIF 303", "Genome sequencing, assembly and Annotation", "1+2"],
+            ["BTB 301", "Molecular Marker Technology", "2+1"],
+            ["BTB 302", "Genomics and proteomics", "1+1"],
+            ["BTB 303", "Molecular Ecology and Evolution", "1+1"],
+            ["BIC 301", "Enzymology and Enzyme Technologies", "2+1"],
+            ["STA 322", "Probability and Random Process", "2+1"],
+            ["COM 334", "PYTHON Programming", "2+1"],
+            ["ARM 301", "Entrepreneurship Development and Business management", "1+1"]
+          ],
+          "VI": [
+            ["BIF 305", "Phylogenetic Analysis", "1+1"],
+            ["BIF 306", "Cheminformatics and drug discovery", "2+1"],
+            ["BIF 307", "Metabolomics and Systems Biology", "2+1"],
+            ["BIF 308", "Pharmacogenomics", "2+1"],
+            ["COM 335", "Artificial Intelligence and Machine learning", "2+1"],
+            ["COM 337", "Big data Analytics", "2+1"],
+            ["TIP 351", "Intellectual Property Rights and Applications in Biotechnology", "1+0"],
+            ["NCC 101", "National Cadet Corps", "0+1"],
+            ["ELE", "Elective course", "2+1"]
+          ],
+          "VII": [
+            ["BIF 401", "Student READY - Skill Development Module (Bioinformatics Work experience in Industry and Institutes) - 3 MONTHS", "0+20"]
+          ],
+          "VIII": [
+            ["BIF 403", "Student READY - Project Formulation, Execution and Presentation", "0+10"],
+            ["EDB", "Student READY - Entrepreneurial Development in Bioinformatics", "0+10"]
+          ]
+        }
+      } },
+      { id: "2025 onwards", label: "Syllabus for batches from 2025", from: 2025, to: 9999, programmes: {
+        "B.Sc. (Hons.) Agriculture": {
+          "I": [
+            ["AGR 101", "Farming Based Livelihood Systems", "2+1"],
+            ["BAE 101", "Introduction to Agricultural Engineering", "2+1"],
+            ["BAE 102", "Surveying and leveling", "1+2"],
+            ["BAE 103", "Basic Electrical Gadgets and instruments", "2+1"],
+            ["TAM 151 / ENG 151", "மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
+            ["COM 101", "Agricultural Informatics and Artificial Intelligence for Engineers", "1+1"],
+            ["COM 102", "Computer Programming and Data Structures", "1+1"],
+            ["AEX 101", "Communication Skills", "1+1"],
+            ["NSS 101 / NCC 101", "National Service scheme / National Cadet Corps", "0+1"]
+          ],
+          "II": [
+            ["HOR 101", "Fundamentals of Horticulture", "2+1"],
+            ["NSS 101 / NCC 101", "National Service Scheme I / National Cadet Corps I", "0+1"],
+            ["MAT 101", "Introductory Mathematics", "0+1"],
+            ["AEX 103", "Personality Development", "1+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["SAC 102", "Soil Fertility Management", "2+1"],
+            ["AEN 101", "Fundamentals of Entomology", "2+1"],
+            ["AMP 101", "Livestock and Poultry Management", "2+1"],
+            ["PAT 101", "Fundamentals of Plant Pathology", "2+1"],
+            ["AGR 102", "Fundamentals of Agronomy", "2+1"],
+            ["SEC 3", "Skill Enhancement course - III", "0+2"],
+            ["SEC 4", "Skill Enhancement course - IV", "0+2"]
+          ]
+        },
+        "B.Sc. (Hons.) Horticulture": {
+          "I": [
+            ["FSC 101", "Principles of Horticulture", "2+1"],
+            ["FSC 102", "Plant Propagation and Nursery Management", "1+1"],
+            ["FLG 101", "Commercial Production of Flower crops", "1+1"],
+            ["AGR 101", "Farming Based Livelihood Systems", "2+1"],
+            ["AGM 101", "Fundamentals of Microbiology", "2+1"],
+            ["AEX 101", "Communication Skills", "1+1"],
+            ["AEC 101", "Principles of Agricultural Economics", "1+0"],
+            ["MAT 101", "Introductory Mathematics", "0+1"],
+            ["NSS 101 / NCC 101", "National Service Scheme I / National Cadet Corps I", "0+1"],
+            ["SEC I", "Skill Enhancement Course-I", "0+2"],
+            ["SEC II", "Skill Enhancement Course-II", "0+2"]
+          ]
+        },
+        "B.Sc. (Hons.) Agri Business Management": {
+          "I": [
+            ["TAM 151 / ENG 151", "Skill Enhancement Course I - மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
+            ["SEC 2", "Skill Enhancement Course II", "0+2"],
+            ["ARM 101", "Introduction to Agribusiness Management", "2+0"],
+            ["ARM 102", "Marketing of Agricultural Inputs and Outputs", "1+1"],
+            ["AEC 101", "Principles of Agricultural Economics", "1+0"],
+            ["AGR", "Introduction to Agronomy and Crop Production Technology", "1+1"],
+            ["SST", "Principles and Practices of Seed Science and Technology", "1+1"],
+            ["MAT 101", "Basic Mathematics", "0+1"],
+            ["AGR", "Farming Based Livelihood Systems", "2+1"],
+            ["AEX", "Communication Skills", "1+1"],
+            ["NSS 101 / NCC 101", "National Service Scheme I / National Cadet Corps I", "0+1"]
+          ],
+          "II": [
+            ["ARM 103", "Introduction to Marketing Management", "2+1"],
+            ["ARM 104", "Introduction to Organizational Behaviour", "2+0"],
+            ["ARM 105", "Introduction to Managerial Accounting", "1+1"],
+            ["ARM 106", "Principles of Operations Management", "1+1"],
+            ["GPB 113", "Introduction to Genetics and Plant breeding", "1+1"],
+            ["AMP 101", "Livestock and Poultry Management", "2+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["AEX 103", "Personality Development", "1+1"],
+            ["SEC III", "Skill Enhancement Course 3", "0+2"],
+            ["SEC IV", "Skill Enhancement Course 4", "0+2"],
+            ["NSS 101 / NCC 101", "National Service Scheme I / National Cadet Corps I", "0+1"]
+          ]
+        },
+        "B.Tech. (Agricultural Engineering)": {
+          "I": [
+            ["AGR 101", "Farming Based Livelihood Systems", "2+1"],
+            ["BAE 101", "Introduction to Agricultural Engineering", "2+1"],
+            ["BAE 102", "Surveying and leveling", "1+2"],
+            ["BAE 103", "Basic Electrical Gadgets and instruments", "2+1"],
+            ["TAM 151 / ENG 151", "மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
+            ["COM 101", "Agricultural Informatics and Artificial Intelligence for Engineers", "1+1"],
+            ["COM 102", "Computer Programming and Data Structures", "1+1"],
+            ["AEX 101", "Communication Skills", "1+1"],
+            ["NSS 101 / NCC 101", "National Service Scheme / National Cadet Corps", "0+1"]
+          ],
+          "II": [
+            ["AGE 121", "Skill Enhancement Module I : Construction Management and maintenance of protected cultivation structures", "0+8"],
+            ["AGE 121", "Module: II Operation and Maintenance of Farm Machinery", "0+2"],
+            ["AGE 121", "Module : III Primary Processing and Value addition and Cold Chain Logistics", "0+8"],
+            ["AGE 121", "Module : IV Fabrication, Operation and Maintenance of Renewable Energy Cadgets", "0+8"],
+            ["BAE 104", "Engineering Drawing", "0+8"],
+            ["BAE 105", "Workshop Technology and Practices", "1+1"],
+            ["AGR 114", "Crop Production and Protection Technologies", "2+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["NSS 101 / NCC 101", "National Service Scheme / National Cadet Corps", "0+1"]
+          ]
+        },
+        "B.Tech. (Energy and Environmental Engineering)": {
+          "I": [
+            ["EEE 101", "Fundamentals of Energy and Environmental Engineering", "2+1"],
+            ["FMP 111", "Workshop Technology", "1+1"],
+            ["BAE 111", "Engineering Drawing and Graphics", "1+2"],
+            ["COM 102", "Computer Programming and Data Structures", "1+1"],
+            ["AEX 101", "Communication Skills", "1+1"],
+            ["COM 101", "Agricultural Information and Artificial Intelligence", "1+1"],
+            ["TAM 151 / ENG 151", "மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
+            ["REE 151 / REE 152", "1. Energy audit, Energy Conservation and Energy efficiency (Skill - I) / 2. Fabrication, Operation and maintenance of Renewable energy gadgets (Skill - I)", "0+2"],
+            ["SWE 151 / SWE 152", "1. Introduction to Environmental lab Practices / 2. Data Analysis and Visualization with MS - Excel, Power BI, tableau, Google Sheets and Locker studio", "0+2"],
+            ["NSS 101 / NCC 101", "National Service Scheme / National Cadet Corps", "0+1"]
+          ],
+          "II": [
+            ["BIC 102", "General Biochemistry", "2+1"],
+            ["BAE 112", "Field Surveying and Leveling", "1+1"],
+            ["FMP 112", "Basic Electrical Engineering", "2+1"],
+            ["FMP 113", "Thermodynamics", "1+1"],
+            ["AGR 114", "Crop Production and Protection Technologies", "2+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["REE 123", "Valorisation of Agri- Biomass and organic waste", "0+2"],
+            ["SWE 123", "Introduction to waste Management Practices and Standards", "0+2"],
+            ["NSS 101 / NCC 101", "National Service Scheme / National Cadet Corps", "0+1"]
+          ]
+        },
+        "B.Tech. (Food Technology)": {
+          "I": [
+            ["FPE 101", "Fundamentals of Food Processing", "2+1"],
+            ["FMP 111", "Workshop Technology", "1+1"],
+            ["BIC 111", "Food Chemistry I", "2+1"],
+            ["BAE 111", "Engineering Drawing and Graphics", "1+2"],
+            ["AGR 101", "Farming Based Livelihood System", "2+1"],
+            ["AEX 101", "Communication Skills", "1+1"],
+            ["FPE 121", "Introduction to Milling (Rice, Dhal, Spice etc.)", "0+2"],
+            ["FMP 121", "Introduction to Auto CAD", "0+2"],
+            ["TAM 121 / ENG 121", "மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
+            ["NSS 101", "National Service Scheme / National Cadet Corps", "0+1"]
+          ],
+          "II": [
+            ["FPE 102", "Post - Harvest Engineering", "2+1"],
+            ["AGM 122", "General Microbiology", "2+1"],
+            ["FPE 103", "Unit Operations in Food Processing", "2+1"],
+            ["FMP 113", "Thermodynamics", "1+1"],
+            ["FMP 112", "Basic Electrical Engineering", "2+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["FPE 126", "Introduction to Bottling and Canning Line", "0+2"],
+            ["FPE 127", "Introduction to Manufacturing of Bakery Products", "0+2"],
+            ["NSS 101 / NCC 101", "National Service Scheme / National Cadet Corps", "0+1"]
+          ]
+        },
+        "B.Tech. (Agricultural Information Technology)": {
+          "I": [
+            ["COM 131", "Fundamentals of Computers", "1+1"],
+            ["COM 132", "Programming in C", "2+1"],
+            ["SWE 111", "Soil and Water Conversation Engineering", "1+1"],
+            ["PHY 152", "Basic Electronics", "2+1"],
+            ["SAC 101", "Fundamentals of Soil Science", "2+1"],
+            ["COM 151", "Linux Operating System (SEC- I)", "0+2"],
+            ["SWE 152", "Data Analysis and Visualization with MS Excel, Power BI, Tableau, Google Sheets & Looker Studio", "0+2"],
+            ["TAM 151 / ENG 151", "மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
+            ["AEX 101", "Communication Skills", "1+1"],
+            ["NSS 101 / NCC 101", "National Service scheme / National Cadet Corps", "0+1"]
+          ],
+          "II": [
+            ["COM 103", "Data Structures and Algorithms using C", "2+1"],
+            ["COM 104", "Object Oriented Programming", "2+1"],
+            ["AGR 114", "Crop Production and Protection Technologies", "2+1"],
+            ["CRP 111", "Plant Physiology", "2+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["COM 122", "Computer Hardware, Software and Digital Platforms (SEC - III)", "0+2"],
+            ["COM 123", "MATLAB Programming (SEC - IV)", "0+2"],
+            ["NSS 101 / NCC 101", "National Service scheme / National Cadet Corps", "0+1"]
+          ]
+        },
+        "B.Tech. (Biotechnology)": {
+          "I": [
+            ["TAM 151 / ENG 151", "Skill Enhancement Course I - மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
+            ["SEC 2", "Skill Enhancement Course II - Practices in Plant Tissue Culture", "0+2"],
+            ["BTB 101", "Introduction to Biotechnology", "2+0"],
+            ["BTB 102", "Introductory Cell Biology", "2+1"],
+            ["BTB 103", "Laboratory Management and Instrumentation", "0+2"],
+            ["PBG 101", "Fundamentals of Genetics", "2+1"],
+            ["MAT 101", "Introductory Mathematics", "0+1"],
+            ["AGR 101", "Farming based Livelihood Systems", "2+1"],
+            ["AEX 101", "Communication Skill", "1+1"],
+            ["NSS 101 / NCC 101", "National Service Scheme I / National Cadet Corps I", "0+1"]
+          ],
+          "II": [
+            ["BTB 104", "Molecular Biology", "3+0"],
+            ["GPB 112", "Introduction to Plant Breeding", "2+1"],
+            ["AGM 111", "Elementary Microbiology", "2+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["AEX 102", "Personality Development", "1+1"],
+            ["SEC 3", "Skill Enhancement Course - 3 (BTB 122 Basic Techniques of Molecular Biology and Biotechnology)", "0+2"],
+            ["SEC 4", "Skill Enhancement Course - 4 (BIF 121 Bioinformatics and Bio computation)", "0+2"],
+            ["NCC 101 / NSS 101", "National Cadet Corps II / National Service Scheme II", "0+1"]
+          ]
+        },
+        "B.Tech. (Bioinformatics)": {
+          "I": [
+            ["TAM 151 / ENG 151", "Skill Enhancement Course I - மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
+            ["SEC 2", "Skill Enhancement Course II - Foundations of Linux and Linux Essentials", "0+2"],
+            ["COM 101", "Programming in C", "2+1"],
+            ["BTB 101", "Introduction to Biotechnology", "2+0"],
+            ["BTB 102", "Introductory Cell Biology", "2+1"],
+            ["AGR 101", "Farming Based Livelihood Systems", "2+1"],
+            ["MAT 101", "Introductory Mathematics", "0+1"],
+            ["PBG 111", "Fundamentals of Genetics", "2+1"],
+            ["AEX 101", "Communication Skills", "1+1"],
+            ["NSS 101 / NCC 101", "National Service Scheme I / National Cadet Corps I", "0+1"]
+          ],
+          "II": [
+            ["BIF 101", "Fundamentals of Bioinformatics", "2+0"],
+            ["BTB 104", "Molecular Biology", "3+0"],
+            ["GPB 112", "Introduction to Plant Breeding", "2+1"],
+            ["COM 103", "Data Structures and Algorithms using C", "2+1"],
+            ["AGM 111", "Elementary Microbiology", "2+1"],
+            ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
+            ["AEX 103", "Personality Development", "1+1"],
+            ["SEC 3", "Skill Enhancement Course - 3 (BIF 121 Bioinformatics and Bio computation)", "0+2"],
+            ["SEC 4", "Skill Enhancement Course - 4 (BTB 122 Basic Techniques of Molecular Biology and Biotechnology)", "0+2"],
+            ["NSS 101 / NCC 101", "National Service Scheme I / National Cadet Corps I", "0+1"]
+          ]
+        }
+      } }
+    ];
+
+    /* ---------- Helpers ---------- */
+    function defaultStore() { return { [DEFAULT_PROFILE_ID]: { name: 'Default Student', id: '', semesters: [] } }; }
+    function icons() { if (window.lucide) window.lucide.createIcons(); }
+    function $(id) { return document.getElementById(id); }
+
+    function toast(message, type = 'info') {
+      const colors = { info: 'bg-slate-800 text-white', success: 'bg-emerald-700 text-white', error: 'bg-red-600 text-white' };
+      const el = document.createElement('div');
+      el.className = `toast ${colors[type] || colors.info} text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg max-w-xs`;
+      el.textContent = message;
+      $('toastHost').appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+
+    function setSyncStatus(state) {
+      const el = $('syncStatus');
+      const map = {
+        saving: ['Saving…', 'text-slate-500'],
+        local:  ['Saved on this device', 'text-slate-600'],
+        cloud:  ['Synced to cloud', 'theme-text'],
+        error:  ['Save failed', 'text-red-600'],
+        ready:  ['Ready', 'text-slate-500']
+      };
+      const [text, cls] = map[state] || map.ready;
+      el.textContent = text;
+      el.className = `font-semibold ${cls}`;
+    }
+
+    function profileLabel(info) {
+      const name = (info.name || '').trim(), id = (info.id || '').trim();
+      if (name && id) return `${name} (${id})`;
+      return name || id || 'Unnamed Student';
+    }
+
+    function storeHasContent(store) {
+      return Object.values(store || {}).some(p =>
+        (p.semesters || []).some(s => (s.courses || []).some(c => c.code || c.title || c.split || c.marks || c.gp)));
+    }
+
+    function loadGuestStore() {
+      try {
+        const raw = localStorage.getItem(GUEST_KEY);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length) return parsed;
+      } catch (e) { /* ignore corrupt data */ }
+      return defaultStore();
+    }
+
+    /* ---------- Boot ---------- */
     document.addEventListener('DOMContentLoaded', () => {
+      renderAuthBar(false);
+      // Start in guest mode immediately so the page is usable even if Firebase is slow or blocked.
+      cloudDataStore = loadGuestStore();
+      restoreActiveProfileId();
+      initProfilesList();
+      icons();
+
+      let tries = 0;
       const checkInterval = setInterval(() => {
         if (window.firebaseApp) {
           clearInterval(checkInterval);
           initFirebaseListener();
+        } else if (++tries > 50) {
+          clearInterval(checkInterval);
+          toast('Cloud sync unavailable. Working in offline guest mode.', 'error');
         }
       }, 100);
-      lucide.createIcons();
     });
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAuthModal(); });
+    $('authModal') && $('authModal').addEventListener('click', (e) => { if (e.target === $('authModal')) closeAuthModal(); });
+
+    // Flush pending edits when the tab is hidden or closed.
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveTimer) flushSave(); });
+    window.addEventListener('pagehide', () => { if (saveTimer) flushSave(); });
+
+    function restoreActiveProfileId() {
+      try {
+        const saved = localStorage.getItem(ACTIVE_KEY);
+        if (saved && cloudDataStore[saved]) activeProfileId = saved;
+        else activeProfileId = Object.keys(cloudDataStore)[0];
+      } catch (e) { activeProfileId = Object.keys(cloudDataStore)[0]; }
+    }
 
     function initFirebaseListener() {
       const { auth, onAuthStateChanged } = window.firebaseApp;
       onAuthStateChanged(auth, async (user) => {
         if (user) {
           currentUser = user;
-          document.getElementById('currentUserDisplay').innerText = user.email;
+          $('currentUserDisplay').innerText = user.email;
           renderAuthBar(true);
-          await fetchUserDataFromCloud(user.uid);
+          startCloudSync(user.uid);
         } else {
+          const wasLoggedIn = !!currentUser;
+          stopCloudSync();
           currentUser = null;
-          document.getElementById('currentUserDisplay').innerText = 'Guest Mode';
+          $('currentUserDisplay').innerText = 'Guest Mode';
           renderAuthBar(false);
-          initProfilesList();
+          if (wasLoggedIn) {
+            // Replace cloud data on screen with this device's guest data.
+            cloudDataStore = loadGuestStore();
+            restoreActiveProfileId();
+            initProfilesList();
+          }
+          setSyncStatus('ready');
         }
       });
     }
 
     function renderAuthBar(isLoggedIn) {
-      const container = document.getElementById('authActionContainer');
-      if (isLoggedIn) {
-        container.innerHTML = `
-          <button onclick="triggerLogout()" class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1.5">
-            <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Logout
-          </button>
-        `;
-      } else {
-        container.innerHTML = `
-          <button onclick="openAuthModal()" class="px-3 py-1.5 theme-btn-primary rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-            <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Login to Cloud
-          </button>
-        `;
-      }
-      lucide.createIcons();
+      const container = $('authActionContainer');
+      container.innerHTML = isLoggedIn
+        ? `<button onclick="triggerLogout()" class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1.5">
+             <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Logout
+           </button>`
+        : `<button onclick="openAuthModal()" class="px-3 py-1.5 theme-btn-primary rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+             <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Login to Cloud
+           </button>`;
+      icons();
     }
 
-    function openAuthModal() { document.getElementById('authModal').classList.remove('hidden'); }
-    function closeAuthModal() { document.getElementById('authModal').classList.add('hidden'); }
+    /* ---------- Auth ---------- */
+    function showAuthError(msg) {
+      const el = $('authError');
+      if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+      el.textContent = msg; el.classList.remove('hidden');
+    }
+    function authMessage(err) { return AUTH_ERRORS[err && err.code] || ('Something went wrong: ' + (err && err.message ? err.message : err)); }
+
+    function openAuthModal() { showAuthError(''); $('authModal').classList.remove('hidden'); setTimeout(() => $('loginEmail').focus(), 50); }
+    function closeAuthModal() { $('authModal').classList.add('hidden'); }
 
     function switchAuthTab(tab) {
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-      const loginBtn = document.getElementById('tabLoginBtn');
-      const registerBtn = document.getElementById('tabRegisterBtn');
-      const title = document.getElementById('authModalTitle');
-
-      if (tab === 'login') {
-        loginForm.classList.remove('hidden');
-        registerForm.classList.add('hidden');
-        loginBtn.className = 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition';
-        registerBtn.className = 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
-        title.innerText = 'Cloud Login Required to Save';
-      } else {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-        registerBtn.className = 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition';
-        loginBtn.className = 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
-        title.innerText = 'Create Cloud Account';
-      }
+      const isLogin = tab === 'login';
+      showAuthError('');
+      $('loginForm').classList.toggle('hidden', !isLogin);
+      $('registerForm').classList.toggle('hidden', isLogin);
+      $('tabLoginBtn').className = isLogin ? 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition' : 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
+      $('tabRegisterBtn').className = !isLogin ? 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition' : 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
+      $('authModalTitle').innerText = isLogin ? 'Cloud Login Required to Store' : 'Create Cloud Account';
     }
 
     async function handleLoginSubmit(event) {
       event.preventDefault();
-      const email = document.getElementById('loginEmail').value.trim();
-      const pass = document.getElementById('loginPassword').value;
-      const { auth, signInWithEmailAndPassword } = window.firebaseApp;
-
+      if (!window.firebaseApp) { showAuthError('Cloud service is not available right now.'); return; }
+      const email = $('loginEmail').value.trim();
+      const pass = $('loginPassword').value;
+      const btn = $('loginSubmitBtn');
+      btn.disabled = true; showAuthError('');
       try {
-        await signInWithEmailAndPassword(auth, email, pass);
+        await window.firebaseApp.signInWithEmailAndPassword(window.firebaseApp.auth, email, pass);
+        $('loginPassword').value = '';
         closeAuthModal();
-      } catch (err) {
-        alert('Login failed: ' + err.message);
-      }
+        toast('Signed in', 'success');
+      } catch (err) { showAuthError(authMessage(err)); }
+      finally { btn.disabled = false; }
     }
 
     async function handleRegisterSubmit(event) {
       event.preventDefault();
-      const email = document.getElementById('regEmail').value.trim();
-      const pass = document.getElementById('regPassword').value;
-      const { auth, createUserWithEmailAndPassword } = window.firebaseApp;
-
+      if (!window.firebaseApp) { showAuthError('Cloud service is not available right now.'); return; }
+      const email = $('regEmail').value.trim();
+      const pass = $('regPassword').value;
+      const btn = $('registerSubmitBtn');
+      btn.disabled = true; showAuthError('');
       try {
-        await createUserWithEmailAndPassword(auth, email, pass);
+        await window.firebaseApp.createUserWithEmailAndPassword(window.firebaseApp.auth, email, pass);
+        $('regPassword').value = '';
         closeAuthModal();
-      } catch (err) {
-        alert('Registration failed: ' + err.message);
-      }
+        toast('Account created', 'success');
+      } catch (err) { showAuthError(authMessage(err)); }
+      finally { btn.disabled = false; }
+    }
+
+    async function handlePasswordReset() {
+      const email = $('loginEmail').value.trim();
+      if (!email) { showAuthError('Enter your email above first, then click "Forgot password?".'); return; }
+      try {
+        await window.firebaseApp.sendPasswordResetEmail(window.firebaseApp.auth, email);
+        showAuthError('');
+        toast('Password reset email sent (check spam too)', 'success');
+      } catch (err) { showAuthError(authMessage(err)); }
     }
 
     async function triggerLogout() {
-      const { auth, signOut } = window.firebaseApp;
-      if (confirm('Are you sure you want to log out?')) {
-        await signOut(auth);
-      }
+      if (!confirm('Are you sure you want to log out?')) return;
+      if (saveTimer) await flushSave();
+      await window.firebaseApp.signOut(window.firebaseApp.auth);
+      toast('Logged out');
     }
 
-    async function fetchUserDataFromCloud(uid) {
-      const { db, doc, getDoc } = window.firebaseApp;
-      try {
-        const docRef = doc(db, "users", uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          cloudDataStore = docSnap.data();
-        } else {
-          cloudDataStore = { 'prof_default': { name: 'Default Student', id: '', semesters: [] } };
+    /* ---------- Storage (guest = localStorage, logged in = Firestore) ---------- */
+    function stableStringify(v) {
+      if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+      if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+      return JSON.stringify(v);
+    }
+
+    function stopCloudSync() {
+      if (unsubscribeCloud) { try { unsubscribeCloud(); } catch (e) { /* already closed */ } unsubscribeCloud = null; }
+      dirtyProfiles.clear(); deletedProfiles.clear();
+    }
+
+    /* Live two-way sync: the account document is watched, so changes made on another device
+       appear here without a refresh, and each device only writes the profiles it changed
+       (an old copy on one device can no longer wipe newer data from another). */
+    function startCloudSync(uid) {
+      stopCloudSync();
+      const { db, doc, onSnapshot } = window.firebaseApp;
+      let first = true;
+      setSyncStatus('saving');
+      unsubscribeCloud = onSnapshot(doc(db, 'users', uid), async (snap) => {
+        if (first) {
+          first = false;
+          if (snap.exists() && Object.keys(snap.data()).length) {
+            cloudDataStore = snap.data();
+            setSyncStatus('cloud');
+          } else {
+            // First login on a new account: carry over anything entered as a guest.
+            const guest = loadGuestStore();
+            cloudDataStore = storeHasContent(guest) ? guest : defaultStore();
+            if (storeHasContent(guest)) toast('Your guest data was copied into your account', 'success');
+            Object.keys(cloudDataStore).forEach(pid => dirtyProfiles.add(pid));
+            await flushSave();
+          }
+          restoreActiveProfileId();
+          initProfilesList();
+          return;
         }
-      } catch (e) {
-        console.error("Error fetching cloud data:", e);
-      }
-      initProfilesList();
+        if (snap.metadata && snap.metadata.hasPendingWrites) return;   // echo of our own write
+        if (!snap.exists() || saveTimer) return;                        // unsaved local edits will be merged by our next save
+        const remote = snap.data();
+        if (stableStringify(remote) === stableStringify(cloudDataStore)) return;
+        cloudDataStore = remote;
+        if (!cloudDataStore[activeProfileId]) activeProfileId = Object.keys(cloudDataStore)[0];
+        initProfilesList();
+        setSyncStatus('cloud');
+        toast('Updated from another device');
+      }, (err) => {
+        console.error('Cloud sync error:', err);
+        setSyncStatus('error');
+        toast(err && err.code === 'permission-denied'
+          ? 'Cloud access was denied. The Firestore rules must allow signed-in users to read and write their own data.'
+          : 'Cloud sync problem. Check your connection.', 'error');
+      });
     }
 
-    async function saveToCloud() {
-      if (!currentUser) return;
-      const { db, doc, setDoc } = window.firebaseApp;
-      try {
-        await setDoc(doc(db, "users", currentUser.uid), cloudDataStore);
-      } catch (e) {
-        console.error("Error saving to cloud:", e);
+    function scheduleSave() {
+      setSyncStatus('saving');
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(flushSave, 700);
+    }
+
+    async function flushSave() {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      try { localStorage.setItem(ACTIVE_KEY, activeProfileId); } catch (e) { /* storage blocked */ }
+      if (currentUser) {
+        const { db, doc, setDoc, updateDoc, deleteField } = window.firebaseApp;
+        const ref = doc(db, 'users', currentUser.uid);
+        const changed = [...dirtyProfiles].filter(pid => cloudDataStore[pid]);
+        const removed = [...deletedProfiles];
+        dirtyProfiles.clear(); deletedProfiles.clear();
+        try {
+          if (changed.length) {
+            const payload = {};
+            changed.forEach(pid => { payload[pid] = cloudDataStore[pid]; });
+            await setDoc(ref, payload, { merge: true });      // only the profiles this device changed
+          }
+          if (removed.length) {
+            const del = {};
+            removed.forEach(pid => { del[pid] = deleteField(); });
+            await updateDoc(ref, del);
+          }
+          setSyncStatus('cloud');
+        } catch (e) {
+          console.error('Error saving to cloud:', e);
+          changed.forEach(pid => dirtyProfiles.add(pid));     // retry on the next save
+          removed.forEach(pid => deletedProfiles.add(pid));
+          setSyncStatus('error');
+        }
+      } else {
+        try {
+          localStorage.setItem(GUEST_KEY, JSON.stringify(cloudDataStore));
+          setSyncStatus('local');
+        } catch (e) { setSyncStatus('error'); }
       }
     }
 
-    function initProfilesList(filterQuery = '') {
-      const switcher = document.getElementById('profileSwitcher');
-      switcher.innerHTML = '';
-
-      let foundActive = false;
-      let matchCount = 0;
-
-      for (const [pid, info] of Object.entries(cloudDataStore)) {
-        let label = info.name || info.id || 'Unnamed Student';
-        if (info.name && info.id) label = `${info.name} (${info.id})`;
-
-        if (filterQuery && !label.toLowerCase().includes(filterQuery.toLowerCase())) continue;
-
-        matchCount++;
-        const opt = document.createElement('option');
-        opt.value = pid;
-        opt.innerText = label;
-        switcher.appendChild(opt);
-        if (pid === activeProfileId) foundActive = true;
-      }
-
-      if (matchCount === 0) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.innerText = 'No match found';
-        switcher.appendChild(opt);
-        return;
-      }
-
-      if (!foundActive) {
-        activeProfileId = switcher.options[0].value;
-      }
-      switcher.value = activeProfileId;
+    /* ---------- Profiles ---------- */
+    function initProfilesList() {
+      renderProfileSwitcher('');
+      $('profileSearchInput').value = '';
       loadProfileData(activeProfileId);
     }
 
-    function filterProfileDropdown(query) { initProfilesList(query); }
-    function switchActiveProfile(profileId) { if (profileId) { activeProfileId = profileId; loadProfileData(profileId); } }
+    // Rebuilds the dropdown only; reloads the sheet only if the active profile fell out of the filter.
+    function renderProfileSwitcher(filterQuery) {
+      const switcher = $('profileSwitcher');
+      switcher.innerHTML = '';
+      const q = (filterQuery || '').toLowerCase();
+      let matches = 0, hasActive = false;
+
+      for (const [pid, info] of Object.entries(cloudDataStore)) {
+        const label = profileLabel(info);
+        if (q && !label.toLowerCase().includes(q)) continue;
+        matches++;
+        const opt = document.createElement('option');
+        opt.value = pid;
+        opt.textContent = label;
+        switcher.appendChild(opt);
+        if (pid === activeProfileId) hasActive = true;
+      }
+
+      if (!matches) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No match found';
+        switcher.appendChild(opt);
+        return false;
+      }
+      if (!hasActive) { activeProfileId = switcher.options[0].value; switcher.value = activeProfileId; return true; }
+      switcher.value = activeProfileId;
+      return false;
+    }
+
+    function filterProfileDropdown(query) {
+      const changed = renderProfileSwitcher(query);
+      if (changed) loadProfileData(activeProfileId);
+    }
+
+    function switchActiveProfile(profileId) {
+      if (!profileId) return;
+      activeProfileId = profileId;
+      loadProfileData(profileId);
+      scheduleSave();
+    }
 
     function promptCreateNewProfile() {
       const inputVal = prompt('Enter Student Name or ID Number for new profile:');
@@ -558,46 +1741,37 @@
         id: isLikelyId ? cleanVal : '',
         semesters: []
       };
-
       activeProfileId = newPid;
-      document.getElementById('profileSearchInput').value = '';
+      dirtyProfiles.add(newPid);
       initProfilesList();
-      saveToCloud();
+      scheduleSave();
     }
 
     function deleteActiveProfile() {
-      const keys = Object.keys(cloudDataStore);
-      if (keys.length <= 1) {
-        alert('You must maintain at least one student profile.');
+      if (Object.keys(cloudDataStore).length <= 1) {
+        toast('You must keep at least one student profile.', 'error');
         return;
       }
-
-      if (confirm('Are you sure you want to delete this student profile?')) {
-        delete cloudDataStore[activeProfileId];
-        activeProfileId = Object.keys(cloudDataStore)[0];
-        initProfilesList();
-        saveToCloud();
-      }
+      if (!confirm(`Delete "${profileLabel(cloudDataStore[activeProfileId])}"? This cannot be undone.`)) return;
+      deletedProfiles.add(activeProfileId); dirtyProfiles.delete(activeProfileId);
+      delete cloudDataStore[activeProfileId];
+      activeProfileId = Object.keys(cloudDataStore)[0];
+      initProfilesList();
+      scheduleSave();
     }
 
     function handleProfileDetailInput() {
-      const nameVal = document.getElementById('studentNameInput').value;
-      const idVal = document.getElementById('studentIdInput').value;
-
-      if (cloudDataStore[activeProfileId]) {
-        cloudDataStore[activeProfileId].name = nameVal.trim();
-        cloudDataStore[activeProfileId].id = idVal.trim();
-      }
-
-      const switcher = document.getElementById('profileSwitcher');
-      const opt = switcher.querySelector(`option[value="${activeProfileId}"]`);
-      if (opt) {
-        let label = nameVal.trim() || idVal.trim() || 'Unnamed Student';
-        if (nameVal.trim() && idVal.trim()) label = `${nameVal.trim()} (${idVal.trim()})`;
-        opt.innerText = label;
-      }
-
+      const opt = $('profileSwitcher').querySelector(`option[value="${CSS.escape(activeProfileId)}"]`);
+      if (opt) opt.textContent = profileLabel({ name: $('studentNameInput').value, id: $('studentIdInput').value });
       saveAndCalculate();
+    }
+
+    /* ---------- Formatting helpers ---------- */
+    function getFormattedBatchString() {
+      const batchVal = $('batchInput').value.trim();
+      const startYear = parseInt(batchVal, 10);
+      if (!isNaN(startYear) && startYear > 1900 && startYear < 2100) return `${startYear}–${startYear + 4}`;
+      return batchVal;
     }
 
     function toRoman(input) {
@@ -605,14 +1779,11 @@
       if (!input) return '';
       input = input.trim().toUpperCase();
       if (/^[IVXLCDM]+$/.test(input)) return input;
-      const cleaned = input.replace(/\D/g, '');
-      let num = parseInt(cleaned, 10);
+      let num = parseInt(input.replace(/\D/g, ''), 10);
       if (isNaN(num) || num <= 0) return input;
-      const lookup = {M:1000, CM:900, D:500, CD:400, C:100, XC:90, L:50, XL:40, X:10, IX:9, V:5, IV:4, I:1};
+      const lookup = { M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90, L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1 };
       let roman = '';
-      for (let i in lookup) {
-        while (num >= lookup[i]) { roman += i; num -= lookup[i]; }
-      }
+      for (const k in lookup) while (num >= lookup[k]) { roman += k; num -= lookup[k]; }
       return roman;
     }
 
@@ -623,31 +1794,34 @@
       return inputTitle;
     }
 
-    function setPassMark(val) {
+    function creditsOf(split) {
+      const s = String(split || '').trim();
+      if (!s) return 0;
+      return s.split('+').reduce((sum, p) => sum + (parseFloat(p) || 0), 0);
+    }
+
+    /* ---------- Settings: pass mark & theme ---------- */
+    function setPassMark(val, fromInput = false) {
       const num = parseFloat(val);
-      if (!isNaN(num) && num >= 0 && num <= 100) {
-        passMarkThreshold = num;
-        document.getElementById('customPassInput').value = num;
-        saveAndCalculate();
-      }
+      if (isNaN(num) || num < 0 || num > 100) return;
+      passMarkThreshold = num;
+      if (!fromInput) $('customPassInput').value = num;
+      saveAndCalculate();
     }
 
     function applyPresetTheme(presetKey) {
-      if (presetKey === 'custom') { applyCustomColor(document.getElementById('customColorPicker').value); return; }
+      if (presetKey === 'custom') { applyCustomColor($('customColorPicker').value); return; }
       const theme = themePresets[presetKey];
       if (theme) {
-        document.getElementById('customColorPicker').value = theme.primary;
+        $('customColorPicker').value = theme.primary;
         setCSSVariables(theme.primary, theme.hover, theme.light, theme.border, theme.text);
       }
       saveAndCalculate();
     }
 
     function applyCustomColor(hexColor) {
-      document.getElementById('presetThemeSelect').value = 'custom';
-      const hoverColor = adjustHexColor(hexColor, -20);
-      const lightColor = adjustHexColor(hexColor, 92);
-      const borderColor = adjustHexColor(hexColor, 70);
-      setCSSVariables(hexColor, hoverColor, lightColor, borderColor, hexColor);
+      $('presetThemeSelect').value = 'custom';
+      setCSSVariables(hexColor, adjustHexColor(hexColor, -20), adjustHexColor(hexColor, 92), adjustHexColor(hexColor, 70), hexColor);
       saveAndCalculate();
     }
 
@@ -661,18 +1835,23 @@
     }
 
     function adjustHexColor(hex, percent) {
-      let num = parseInt(hex.replace('#', ''), 16),
-          amt = Math.round(2.55 * percent),
-          R = (num >> 16) + amt, G = (num >> 8 & 0x00FF) + amt, B = (num & 0x0000FF) + amt;
-      return '#' + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
+      const num = parseInt(hex.replace('#', ''), 16), amt = Math.round(2.55 * percent);
+      const clamp = (v) => Math.max(0, Math.min(255, v));
+      const R = clamp((num >> 16) + amt), G = clamp(((num >> 8) & 0xFF) + amt), B = clamp((num & 0xFF) + amt);
+      return '#' + ((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1);
     }
 
+    /* ---------- Semesters & courses ---------- */
     function addNewSemesterBlock(title = '') {
       semesterCounter++;
       const semId = `sem-block-${semesterCounter}`;
-      const formattedTitle = title ? formatSemesterTitle(title) : `Semester ${toRoman(semesterCounter)}`;
+      // A new card is numbered after the highest semester already on the sheet (not by how many were ever created).
+      const highest = Math.max(0, ...[...document.querySelectorAll('.sem-title-input')].map(i => {
+        const m = (i.value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1];
+        return m ? (/^\d+$/.test(m) ? parseInt(m, 10) : romanToInt(m.toUpperCase())) : 0;
+      }));
+      const formattedTitle = title ? formatSemesterTitle(title) : `Semester ${toRoman(highest + 1)}`;
 
-      const container = document.getElementById('semestersContainer');
       const div = document.createElement('div');
       div.className = 'bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden semester-card mb-6';
       div.id = semId;
@@ -681,17 +1860,20 @@
         <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div class="flex items-center gap-2 w-full sm:w-auto">
             <i data-lucide="book-open" class="w-5 h-5 theme-text"></i>
-            <input type="text" value="${formattedTitle}" oninput="formatAndSave(this)" class="sem-title-input text-base font-bold text-slate-800 bg-transparent outline-none border-b border-dashed border-slate-300 focus:border-emerald-500 px-1 py-0.5">
+            <input type="text" aria-label="Semester title" onchange="formatAndSave(this)" oninput="saveAndCalculate()" class="sem-title-input text-base font-bold text-slate-800 bg-transparent outline-none border-b border-dashed border-slate-300 px-1 py-0.5">
           </div>
           <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
             <div class="text-xs font-semibold theme-text bg-white px-3 py-1 rounded-lg border border-slate-200">
               GPA: <span class="sem-gpa-badge text-sm font-bold">0.00</span>
             </div>
             <div class="flex items-center gap-1 no-print">
+              <button onclick="loadCatalogCourses('${semId}')" class="px-2.5 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-100 transition flex items-center gap-1" title="Fill this semester from the TNAU syllabus for your programme and batch">
+                <i data-lucide="list-plus" class="w-3.5 h-3.5"></i> Load Courses
+              </button>
               <button onclick="addCourseRowToSem('${semId}'); saveAndCalculate();" class="px-2.5 py-1 theme-card-light theme-text border rounded-lg text-xs font-semibold hover:opacity-80 transition flex items-center gap-1">
                 <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Course
               </button>
-              <button onclick="removeSemesterBlock('${semId}')" class="p-1 text-slate-400 hover:text-red-500 rounded-lg transition" title="Remove Semester">
+              <button onclick="removeSemesterBlock('${semId}')" aria-label="Remove semester" class="p-1 text-slate-400 hover:text-red-500 rounded-lg transition" title="Remove Semester">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
@@ -717,222 +1899,507 @@
           </table>
         </div>
       `;
-
-      container.appendChild(div);
-      lucide.createIcons();
+      div.querySelector('.sem-title-input').value = formattedTitle;   // set via DOM: no HTML injection
+      $('semestersContainer').appendChild(div);
+      icons();
       return semId;
     }
 
-    function formatAndSave(input) { input.value = formatSemesterTitle(input.value); saveAndCalculate(); }
-    function removeSemesterBlock(semId) { const el = document.getElementById(semId); if (el) { el.remove(); saveAndCalculate(); } }
+    function formatAndSave(input) { input.value = formatSemesterTitle(input.value); sortSemesterCards(); saveAndCalculate(); }
 
-    function addCourseRowToSem(semId, split = '', credits = '', marksVal = '', code = '', title = '', gpVal = '') {
-      const semBlock = document.getElementById(semId);
-      if (!semBlock) return;
+    function romanToInt(r) {
+      const v = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+      let total = 0;
+      for (let i = 0; i < r.length; i++) { const a = v[r[i]], b = v[r[i + 1]] || 0; total += a < b ? -a : a; }
+      return total;
+    }
+
+    // Keep semester cards in Semester I, II, III... order; anything without a number stays after them.
+    function sortSemesterCards() {
+      const container = $('semestersContainer');
+      const cards = [...container.children];
+      const rank = (card) => {
+        const m = (card.querySelector('.sem-title-input').value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1];
+        if (!m) return 999;
+        const n = /^\d+$/.test(m) ? parseInt(m, 10) : romanToInt(m.toUpperCase());
+        return n || 999;
+      };
+      const sorted = cards.map((c, i) => ({ c, i, r: rank(c) })).sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.c);
+      if (sorted.some((c, i) => c !== cards[i])) sorted.forEach(c => container.appendChild(c));
+    }
+
+    function removeSemesterBlock(semId) {
+      const el = $(semId);
+      if (!el) return;
+      const hasData = [...el.querySelectorAll('.course-code, .course-title, .course-marks, .course-gp-input')].some(i => i.value);
+      if (hasData && !confirm('Remove this semester and all its courses?')) return;
+      el.remove();
+      saveAndCalculate();
+    }
+
+    function addCourseRowToSem(semId, data = {}) {
+      const semBlock = $(semId);
+      if (!semBlock) return null;
       const tbody = semBlock.querySelector('.courseTableBody');
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-50/85 transition-colors empty-course-row';
 
       tr.innerHTML = `
         <td class="px-3 py-2 text-slate-400 font-medium text-xs row-number text-center"></td>
-        <td class="px-3 py-2"><input type="text" placeholder="Code" value="${code}" oninput="saveAndCalculate()" class="course-code w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none uppercase font-semibold text-center"></td>
-        <td class="px-3 py-2"><input type="text" placeholder="Title" value="${title}" oninput="saveAndCalculate()" class="course-title w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-left"></td>
-        <td class="px-3 py-2"><input type="text" placeholder="e.g. 1+1" value="${split}" oninput="parseCreditSplit(this)" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
-        <td class="px-3 py-2"><input type="number" step="0.1" min="0" max="100" placeholder="0 - 100" value="${marksVal}" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
-        <td class="px-3 py-2"><input type="number" step="0.01" min="0" max="10" placeholder="0 - 10" value="${gpVal}" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
+        <td class="px-3 py-2"><input type="text" aria-label="Course code" placeholder="Code" oninput="saveAndCalculate()" class="course-code w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none uppercase font-semibold text-center"></td>
+        <td class="px-3 py-2"><input type="text" aria-label="Course title" placeholder="Title" oninput="saveAndCalculate()" class="course-title w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-left"></td>
+        <td class="px-3 py-2"><input type="text" aria-label="Credit hours" placeholder="e.g. 1+1" oninput="saveAndCalculate()" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
+        <td class="px-3 py-2"><input type="number" aria-label="Marks" step="0.1" min="0" max="100" placeholder="0 - 100" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
+        <td class="px-3 py-2"><input type="number" aria-label="Grade point" step="0.01" min="0" max="10" placeholder="0 - 10" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
         <td class="px-3 py-2 font-semibold theme-text text-xs course-cp text-center">0.00</td>
         <td class="px-3 py-2 text-center course-status"><span class="text-[11px] font-medium text-slate-400">-</span></td>
-        <td class="px-3 py-2 text-center no-print"><button onclick="removeCourseRow(this)" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+        <td class="px-3 py-2 text-center no-print"><button onclick="removeCourseRow(this)" aria-label="Remove course" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
       `;
 
-      tbody.appendChild(tr);
-      if (split) parseCreditSplit(tr.querySelector('.course-split'));
-      if (marksVal !== '' && marksVal !== undefined) { tr.querySelector('.course-marks').value = marksVal; syncScoreInputs(tr, 'marks'); }
-      else if (gpVal !== '' && gpVal !== undefined) { tr.querySelector('.course-gp-input').value = gpVal; syncScoreInputs(tr, 'gp'); }
+      // Values are assigned through the DOM so quotes or tags in titles can never break the markup.
+      tr.querySelector('.course-code').value = data.code || '';
+      tr.querySelector('.course-title').value = data.title || '';
+      tr.querySelector('.course-split').value = data.split || '';
+      tr.querySelector('.course-marks').value = data.marks ?? '';
+      tr.querySelector('.course-gp-input').value = data.gp ?? '';
+      if (data.auto) { tr.dataset.auto = '1'; tr.dataset.autoKey = data.autoKey || ''; }   // row came from the syllabus catalogue
+      if (tr.querySelector('.course-marks').value !== '' && tr.querySelector('.course-gp-input').value === '') deriveScores(tr, 'marks');
+      else if (tr.querySelector('.course-gp-input').value !== '' && tr.querySelector('.course-marks').value === '') deriveScores(tr, 'gp');
 
+      tbody.appendChild(tr);
       updateRowNumbers(tbody);
-      lucide.createIcons();
+      icons();
+      return tr;
     }
 
-    function removeCourseRow(btn) { const tr = btn.closest('tr'); const tbody = tr.parentNode; tr.remove(); updateRowNumbers(tbody); saveAndCalculate(); }
+    function removeCourseRow(btn) {
+      const tr = btn.closest('tr'), tbody = tr.parentNode;
+      tr.remove();
+      updateRowNumbers(tbody);
+      saveAndCalculate();
+    }
+
     function updateRowNumbers(tbody) { tbody.querySelectorAll('tr').forEach((row, i) => row.querySelector('.row-number').innerText = i + 1); }
 
-    function parseCreditSplit(input) {
-      const val = input.value.trim(); const row = input.closest('tr');
-      if (val.includes('+')) {
-        row.dataset.credits = val.split('+').map(p => parseFloat(p.trim()) || 0).reduce((a, b) => a + b, 0);
-      } else { row.dataset.credits = parseFloat(val) || ''; }
-      saveAndCalculate();
-    }
-
-    function syncScoreInputs(row, source) {
-      const marksInput = row.querySelector('.course-marks'); const gpInput = row.querySelector('.course-gp-input');
+    // Marks and grade point mirror each other (GP = marks / 10).
+    function deriveScores(row, source) {
+      const marksInput = row.querySelector('.course-marks'), gpInput = row.querySelector('.course-gp-input');
       if (source === 'marks') {
-        const val = parseFloat(marksInput.value); gpInput.value = (!isNaN(val) && val >= 0) ? (val / 10).toFixed(2) : '';
-      } else if (source === 'gp') {
-        const val = parseFloat(gpInput.value); marksInput.value = (!isNaN(val) && val >= 0) ? (val * 10).toFixed(1) : '';
+        const v = parseFloat(marksInput.value);
+        gpInput.value = (!isNaN(v) && v >= 0 && v <= 100) ? (v / 10).toFixed(2) : '';
+      } else {
+        const v = parseFloat(gpInput.value);
+        marksInput.value = (!isNaN(v) && v >= 0 && v <= 10) ? (v * 10).toFixed(1) : '';
       }
-      saveAndCalculate();
     }
 
-    function clearImportText() { document.getElementById('bulkImportInput').value = ''; }
+    function syncScoreInputs(row, source) { deriveScores(row, source); saveAndCalculate(); }
 
-    function processBulkImport() {
-      const text = document.getElementById('bulkImportInput').value; if (!text.trim()) return;
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-      let semCards = document.querySelectorAll('.semester-card'); let currentSemId = null; let isFirst = true;
+    /* ---------- Syllabus auto-fill ---------- */
+    function findCurriculum(batchYear) {
+      return CURRICULA.find(c => batchYear >= c.from && batchYear <= c.to) || null;
+    }
 
-      lines.forEach((line) => {
-        const semMatch = line.match(/^Sem(?:ester)?\.?\s*([0-9]+|[IVXLCDM]+)/i);
-        if (semMatch) {
-          const formatted = formatSemesterTitle(`Semester ${semMatch[1]}`);
-          if (isFirst && semCards.length === 1 && semCards[0].querySelectorAll('.courseTableBody tr').length === 0) {
-            currentSemId = semCards[0].id; semCards[0].querySelector('.sem-title-input').value = formatted;
-          } else { currentSemId = addNewSemesterBlock(formatted); }
-          isFirst = false; return;
-        }
-        const codeMatch = line.match(/([A-Z]{2,4}\s*\d{2,3})/i);
-        if (codeMatch) {
-          if (!currentSemId) currentSemId = semCards.length > 0 ? semCards[semCards.length - 1].id : addNewSemesterBlock();
-          const code = codeMatch[1].toUpperCase().trim(); let rem = line.replace(codeMatch[0], '').trim();
-          let split = ''; const splitMatch = rem.match(/(\d\s*\+\s*\d)/);
-          if (splitMatch) { split = splitMatch[1].replace(/\s+/g, ''); rem = rem.replace(splitMatch[0], '').trim(); }
-          let gradeVal = ''; let marksVal = ''; const tokens = rem.split(/\s+/).filter(t => t.length > 0);
-          if (tokens.length > 0) {
-            const last = parseFloat(tokens[tokens.length - 1]);
-            if (!isNaN(last)) { tokens.pop(); if (last <= 10) gradeVal = last; else marksVal = last; }
-          }
-          addCourseRowToSem(currentSemId, split, '', marksVal, code, tokens.join(' ').replace(/^\.|\d+\./g, '').trim(), gradeVal);
-        }
+    function loadCatalogCourses(semId) {
+      const card = $(semId);
+      if (!card) return;
+      const degree = $('degreeInput').value;
+      const batchYear = parseInt($('batchInput').value, 10);
+      if (!degree || isNaN(batchYear)) { toast('Select the Degree Programme and enter the Batch Start Year first.', 'error'); return; }
+
+      const set = findCurriculum(batchYear);
+      if (!set) { toast(`No syllabus is set up for batch ${batchYear}.`, 'error'); return; }
+      const programme = set.programmes[degree];
+      if (!programme) { toast(`${degree}: the ${set.id} course list hasn't been added yet. You can still add courses manually.`, 'error'); return; }
+
+      const roman = toRoman((card.querySelector('.sem-title-input').value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1] || '');
+      const courses = programme[roman];
+      if (!courses) { toast(`No courses listed for ${card.querySelector('.sem-title-input').value || 'this semester'}. Name it like "Semester IV".`, 'error'); return; }
+
+      const keyOf = (code, title) => `${code.trim().toUpperCase()}|${title.trim().toLowerCase()}`;
+      const existing = new Set([...card.querySelectorAll('.courseTableBody tr')].map(r => keyOf(r.querySelector('.course-code').value, r.querySelector('.course-title').value)));
+      // Reuse blank rows (e.g. from "Add Course") instead of leaving gaps above the loaded ones.
+      card.querySelectorAll('.courseTableBody tr').forEach(r => {
+        if (![...r.querySelectorAll('input')].some(i => i.value)) r.remove();
       });
+
+      let added = 0;
+      isLoading = true;
+      try {
+        for (const [code, title, split] of courses) {
+          if (existing.has(keyOf(code, title))) continue;
+          addCourseRowToSem(semId, { code, title, split, auto: true, autoKey: `${degree}|${set.id}` });
+          added++;
+        }
+      } finally { isLoading = false; }
       saveAndCalculate();
+      toast(added ? `Loaded ${added} course${added > 1 ? 's' : ''} (${set.id}). Enter your marks.` : 'All courses for this semester are already there.', added ? 'success' : 'info');
+    }
+
+    /* ---------- Automatic syllabus fill ----------
+       Runs whenever the Degree Programme or Batch Start Year changes.
+       - Fills every semester that has nothing typed in yet (and creates the missing semester cards on a fresh sheet).
+       - Never touches rows where you've entered marks/grade points, or semesters you've typed your own courses into.
+       - If you switch programme/batch, un-marked rows from the previous syllabus are swapped for the new ones. */
+    function onProgrammeOrBatchChange() { applyCatalogAuto(); saveAndCalculate(); }
+
+    function rowHasScores(tr) { return tr.querySelector('.course-marks').value !== '' || tr.querySelector('.course-gp-input').value !== ''; }
+    function rowHasAnyInput(tr) { return [...tr.querySelectorAll('input')].some(i => i.value !== ''); }
+    function cardIsPristine(card) {
+      return [...card.querySelectorAll('.courseTableBody tr')].every(tr => tr.dataset.auto === '1' ? !rowHasScores(tr) : !rowHasAnyInput(tr));
+    }
+    function cardRoman(card) {
+      return toRoman((card.querySelector('.sem-title-input').value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1] || '');
+    }
+
+    function applyCatalogAuto() {
+      if (isLoading) return;
+      const degree = $('degreeInput').value;
+      const raw = $('batchInput').value.trim();
+      const year = parseInt(raw, 10);
+      const yearReady = /^\d{4}$/.test(raw) && year >= 2000;   // wait until a full year is typed
+
+      const set = (degree && yearReady) ? findCurriculum(year) : null;
+      const programme = set ? set.programmes[degree] : null;
+      const key = programme ? `${degree}|${set.id}` : '';
+      const limit = parseInt($('semsDoneInput').value, 10) || 99;   // how many semesters the student has completed
+      const rankOf = (roman) => programme ? Object.keys(programme).indexOf(roman) : -1;
+
+      isLoading = true;
+      let filledCards = 0, filledRows = 0;
+      try {
+        // 1) Drop rows from a previous programme/batch selection unless marks were entered on them.
+        document.querySelectorAll('.semester-card').forEach(card => {
+          const tbody = card.querySelector('.courseTableBody');
+          delete card.dataset.cleared;
+          tbody.querySelectorAll('tr[data-auto="1"]').forEach(tr => { if (tr.dataset.autoKey !== key && !rowHasScores(tr)) { tr.remove(); card.dataset.cleared = '1'; } });
+          updateRowNumbers(tbody);
+        });
+
+        if (!programme) {
+          if (degree && yearReady) {
+            isLoading = false;
+            toast(set ? `${degree}: the ${set.id} course list isn't added yet. Add courses manually.` : `No syllabus is set up for batch ${year}.`, 'error');
+          }
+          return;
+        }
+
+        // 2a) Remove untouched semesters beyond the number completed (keep at least one card).
+        document.querySelectorAll('.semester-card').forEach(card => {
+          const r = rankOf(cardRoman(card));
+          const outOfScope = r >= limit || (r === -1 && card.dataset.cleared === '1');   // beyond completed semesters, or not in this syllabus
+          if (outOfScope && cardIsPristine(card) && document.querySelectorAll('.semester-card').length > 1) card.remove();
+        });
+
+        // 2b) On a fresh sheet, make sure there is a card for each completed semester in the syllabus.
+        {
+          const have = new Set([...document.querySelectorAll('.semester-card')].map(cardRoman));
+          Object.keys(programme).slice(0, limit).forEach(roman => { if (!have.has(roman)) addNewSemesterBlock(`Semester ${roman}`); });
+          // keep the cards in syllabus order
+          const container = $('semestersContainer');
+          const rank = r => { const i = Object.keys(programme).indexOf(r); return i < 0 ? 99 : i; };
+          [...container.children].sort((a, b) => rank(cardRoman(a)) - rank(cardRoman(b))).forEach(c => container.appendChild(c));
+        }
+
+        // 3) Fill each semester that is still untouched.
+        document.querySelectorAll('.semester-card').forEach(card => {
+          const courses = programme[cardRoman(card)];
+          if (!courses || rankOf(cardRoman(card)) >= limit) return;
+          if (!card.dataset.cleared && [...card.querySelectorAll('tr[data-auto="1"]')].some(tr => tr.dataset.autoKey === key)) return;  // already filled for this selection
+          // Fill only if the card holds nothing but syllabus rows or blanks (never mix into hand-typed courses).
+          if (![...card.querySelectorAll('.courseTableBody tr')].every(tr => tr.dataset.auto === '1' || !rowHasAnyInput(tr))) return;
+          card.querySelectorAll('.courseTableBody tr').forEach(tr => { if (!rowHasAnyInput(tr)) tr.remove(); });
+          const present = new Set([...card.querySelectorAll('.courseTableBody tr')].map(tr => `${tr.querySelector('.course-code').value.trim().toUpperCase()}|${tr.querySelector('.course-title').value.trim().toLowerCase()}`));
+          let added = 0;
+          courses.forEach(([code, title, split]) => {
+            if (present.has(`${code.toUpperCase()}|${title.toLowerCase()}`)) return;   // e.g. a row you already entered marks on
+            addCourseRowToSem(card.id, { code, title, split, auto: true, autoKey: key });
+            added++;
+          });
+          if (added) { filledCards++; filledRows += added; }
+        });
+      } finally { isLoading = false; }
+
+      if (filledCards) toast(`Filled ${filledRows} courses across ${filledCards} semester${filledCards > 1 ? 's' : ''} (${set.id}). Enter your marks.`, 'success');
+    }
+
+    /* ---------- Save / load profile ---------- */
+    function collectActiveProfile() {
+      const p = cloudDataStore[activeProfileId] || (cloudDataStore[activeProfileId] = {});
+      dirtyProfiles.add(activeProfileId);
+      p.name = $('studentNameInput').value;
+      p.id = $('studentIdInput').value;
+      p.degree = $('degreeInput').value;
+      p.batch = $('batchInput').value;
+      p.semsDone = $('semsDoneInput').value;
+      p.passMark = passMarkThreshold;
+      p.theme = $('presetThemeSelect').value;
+      p.customColor = $('customColorPicker').value;
+      p.semesters = [...document.querySelectorAll('.semester-card')].map(card => ({
+        title: card.querySelector('.sem-title-input').value,
+        courses: [...card.querySelectorAll('.courseTableBody tr')].map(row => ({
+          code: row.querySelector('.course-code').value,
+          title: row.querySelector('.course-title').value,
+          split: row.querySelector('.course-split').value,
+          marks: row.querySelector('.course-marks').value,
+          gp: row.querySelector('.course-gp-input').value,
+          auto: row.dataset.auto === '1',
+          autoKey: row.dataset.autoKey || ''
+        }))
+      }));
     }
 
     function saveAndCalculate() {
-      if (!activeProfileId || !cloudDataStore[activeProfileId]) return;
       calculateAll();
-
-      cloudDataStore[activeProfileId].name = document.getElementById('studentNameInput').value;
-      cloudDataStore[activeProfileId].id = document.getElementById('studentIdInput').value;
-      cloudDataStore[activeProfileId].degree = document.getElementById('degreeInput').value;
-      cloudDataStore[activeProfileId].batch = document.getElementById('batchInput').value;
-      cloudDataStore[activeProfileId].passMark = passMarkThreshold;
-      cloudDataStore[activeProfileId].theme = document.getElementById('presetThemeSelect').value;
-      cloudDataStore[activeProfileId].customColor = document.getElementById('customColorPicker').value;
-
-      const semesters = [];
-      document.querySelectorAll('.semester-card').forEach(semCard => {
-        const title = semCard.querySelector('.sem-title-input').value;
-        const courses = [];
-        semCard.querySelectorAll('.courseTableBody tr').forEach(row => {
-          courses.push({
-            code: row.querySelector('.course-code').value,
-            title: row.querySelector('.course-title').value,
-            split: row.querySelector('.course-split').value,
-            marks: row.querySelector('.course-marks').value,
-            gp: row.querySelector('.course-gp-input').value
-          });
-        });
-        semesters.push({ title, courses });
-      });
-      cloudDataStore[activeProfileId].semesters = semesters;
-
-      saveToCloud();
+      if (isLoading || !activeProfileId || !cloudDataStore[activeProfileId]) return;
+      collectActiveProfile();
+      scheduleSave();
     }
 
     function loadProfileData(profileId) {
-      document.getElementById('semestersContainer').innerHTML = '';
-      semesterCounter = 0;
-      const data = cloudDataStore[profileId] || { name: '', id: '', semesters: [] };
+      isLoading = true;
+      try {
+        $('semestersContainer').innerHTML = '';
+        semesterCounter = 0;
+        const data = cloudDataStore[profileId] || { name: '', id: '', semesters: [] };
 
-      document.getElementById('studentNameInput').value = data.name || '';
-      document.getElementById('studentIdInput').value = data.id || '';
-      document.getElementById('degreeInput').value = data.degree || '';
-      document.getElementById('batchInput').value = data.batch || '';
-      if (data.passMark) setPassMark(data.passMark);
-      if (data.theme) {
-        document.getElementById('presetThemeSelect').value = data.theme;
-        if (data.theme === 'custom' && data.customColor) {
-          document.getElementById('customColorPicker').value = data.customColor;
-          applyCustomColor(data.customColor);
-        } else { applyPresetTheme(data.theme); }
-      }
+        $('studentNameInput').value = data.name || '';
+        $('studentIdInput').value = data.id || '';
+        $('degreeInput').value = data.degree || '';
+        $('batchInput').value = data.batch || '';
+        $('semsDoneInput').value = data.semsDone || '';
+        setPassMark(data.passMark ?? 50);
 
-      if (data.semesters && data.semesters.length > 0) {
-        data.semesters.forEach(sem => {
-          const semId = addNewSemesterBlock(sem.title);
-          if (sem.courses) sem.courses.forEach(c => addCourseRowToSem(semId, c.split, '', c.marks, c.code, c.title, c.gp));
-        });
-      } else { addNewSemesterBlock('Semester I'); }
+        if (data.theme) {
+          $('presetThemeSelect').value = data.theme;
+          if (data.theme === 'custom' && data.customColor) { $('customColorPicker').value = data.customColor; applyCustomColor(data.customColor); }
+          else applyPresetTheme(data.theme);
+        }
 
+        if (data.semesters && data.semesters.length) {
+          data.semesters.forEach(sem => {
+            const semId = addNewSemesterBlock(sem.title);
+            (sem.courses || []).forEach(c => addCourseRowToSem(semId, c));
+          });
+        } else addNewSemesterBlock('Semester I');
+        sortSemesterCards();
+      } finally { isLoading = false; }
       calculateAll();
     }
 
+    /* ---------- Calculation ---------- */
     function calculateAll() {
-      const name = document.getElementById('studentNameInput').value.trim();
-      const id = document.getElementById('studentIdInput').value.trim();
-      const degree = document.getElementById('degreeInput').value.trim();
-      const batch = document.getElementById('batchInput').value.trim();
+      const name = $('studentNameInput').value.trim();
+      const id = $('studentIdInput').value.trim();
+      const degree = $('degreeInput').value;
+      const batch = getFormattedBatchString();
 
-      document.getElementById('summaryName').innerText = name || '-';
-      document.getElementById('summaryId').innerText = id || '-';
-      document.getElementById('summaryDegree').innerText = degree || '-';
-      document.getElementById('summaryBatch').innerText = batch || '-';
+      $('summaryName').innerText = name || '-';
+      $('summaryId').innerText = id || '-';
+      $('summaryDegree').innerText = degree || '-';
+      $('summaryBatch').innerText = batch || '-';
+      $('summaryDate').innerText = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
-      document.getElementById('printRowName').style.display = name ? 'flex' : 'none';
-      document.getElementById('printRowId').style.display = id ? 'flex' : 'none';
-      document.getElementById('printRowDegree').style.display = degree ? 'flex' : 'none';
-      document.getElementById('printRowBatch').style.display = batch ? 'flex' : 'none';
+      $('printRowName').style.display = name ? 'flex' : 'none';
+      $('printRowId').style.display = id ? 'flex' : 'none';
+      $('printRowDegree').style.display = degree ? 'flex' : 'none';
+      $('printRowBatch').style.display = batch ? 'flex' : 'none';
 
-      document.getElementById('printProfileBox').style.display = (!name && !id && !degree && !batch) ? 'none' : 'block';
-
-      let totalCredits = 0; let totalPoints = 0;
-      const breakdownList = document.getElementById('semesterBreakdownList'); breakdownList.innerHTML = '';
+      let totalCredits = 0, totalPoints = 0, arrears = 0;
+      const breakdownList = $('semesterBreakdownList');
+      breakdownList.innerHTML = '';
 
       document.querySelectorAll('.semester-card').forEach((semCard) => {
         const semTitle = semCard.querySelector('.sem-title-input').value.trim() || 'Semester';
-        let semCredits = 0; let semPoints = 0;
+        let semCredits = 0, semPoints = 0;
 
         semCard.querySelectorAll('.courseTableBody tr').forEach((row) => {
           const split = row.querySelector('.course-split').value.trim();
-          const marks = parseFloat(row.querySelector('.course-marks').value);
-          const gp = parseFloat(row.querySelector('.course-gp-input').value);
-          let credits = parseFloat(row.dataset.credits) || (split.includes('+') ? split.split('+').reduce((a,b)=>parseFloat(a)+parseFloat(b),0) : parseFloat(split)) || 0;
+          const marksInput = row.querySelector('.course-marks'), gpInput = row.querySelector('.course-gp-input');
+          const marks = parseFloat(marksInput.value), gp = parseFloat(gpInput.value);
+          const credits = creditsOf(split);
 
-          const cpCell = row.querySelector('.course-cp'); const statusCell = row.querySelector('.course-status');
-          const isFilled = (row.querySelector('.course-code').value || row.querySelector('.course-title').value || split || !isNaN(marks) || !isNaN(gp));
+          marksInput.classList.toggle('input-invalid', !isNaN(marks) && (marks < 0 || marks > 100));
+          gpInput.classList.toggle('input-invalid', !isNaN(gp) && (gp < 0 || gp > 10));
+
+          const cpCell = row.querySelector('.course-cp'), statusCell = row.querySelector('.course-status');
+          const isFilled = row.querySelector('.course-code').value || row.querySelector('.course-title').value || split || !isNaN(marks) || !isNaN(gp);
           row.classList.toggle('empty-course-row', !isFilled);
 
-          if (credits > 0 && !isNaN(gp) && gp >= 0) {
-            const cp = credits * gp; cpCell.innerText = cp.toFixed(2);
-            statusCell.innerHTML = marks >= passMarkThreshold ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>' : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>';
+          if (credits > 0 && !isNaN(gp) && gp >= 0 && gp <= 10) {
+            const cp = credits * gp;
+            const effectiveMarks = !isNaN(marks) ? marks : gp * 10;
+            cpCell.innerText = cp.toFixed(2);
+            if (effectiveMarks >= passMarkThreshold) {
+              statusCell.innerHTML = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>';
+            } else {
+              statusCell.innerHTML = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>';
+              arrears++;
+            }
             semCredits += credits; semPoints += cp;
-          } else { cpCell.innerText = '0.00'; statusCell.innerHTML = '<span class="text-[11px] text-slate-400">-</span>'; }
+          } else {
+            cpCell.innerText = '0.00';
+            statusCell.innerHTML = '<span class="text-[11px] text-slate-400">-</span>';
+          }
         });
 
-        const semGPA = semCredits > 0 ? (semPoints / semCredits) : 0;
+        const semGPA = semCredits > 0 ? semPoints / semCredits : 0;
         semCard.querySelector('.sem-gpa-badge').innerText = semGPA.toFixed(2);
         totalCredits += semCredits; totalPoints += semPoints;
 
         if (semCredits > 0) {
+          const colStyle = 'display:grid;grid-template-columns:minmax(0,1fr) 3.5rem 3.5rem;gap:0.5rem;align-items:center';
+          const cols = 'items-center';
+          if (!breakdownList.children.length) {
+            const head = document.createElement('div');
+            head.className = `${cols} text-[10px] uppercase tracking-wider text-slate-400 pb-1`;
+            head.style.cssText = colStyle;
+            head.innerHTML = '<span>Semester</span><span class="text-right">Credits</span><span class="text-right">GPA</span>';
+            breakdownList.appendChild(head);
+          }
           const item = document.createElement('div');
-          item.className = 'flex justify-between items-center py-1 border-b border-slate-50';
-          item.innerHTML = `<span class="font-medium text-slate-600">${semTitle}</span><span class="font-bold theme-text">${semGPA.toFixed(2)} <span class="text-[10px] text-slate-400">(${semCredits} Cr)</span></span>`;
+          item.className = `${cols} py-1 border-b border-slate-50 tabular-nums`;
+          item.style.cssText = colStyle;
+          const label = document.createElement('span');
+          label.className = 'font-medium text-slate-600 truncate';
+          label.textContent = semTitle;                       // textContent: titles are user input
+          const cr = document.createElement('span');
+          cr.className = 'text-right text-slate-500';
+          cr.textContent = String(semCredits);
+          const val = document.createElement('span');
+          val.className = 'text-right font-bold theme-text';
+          val.textContent = semGPA.toFixed(2);
+          item.append(label, cr, val);
           breakdownList.appendChild(item);
         }
       });
 
-      const overallOGPA = totalCredits > 0 ? (totalPoints / totalCredits) : 0;
-      document.getElementById('cumulativeOgpaDisplay').innerText = overallOGPA.toFixed(2);
-      document.getElementById('percentageDisplay').innerText = `Overall Percentage: ${(overallOGPA * 10).toFixed(2)}%`;
-      document.getElementById('totalCreditsDisplay').innerText = totalCredits.toFixed(1);
-      document.getElementById('totalPointsDisplay').innerText = totalPoints.toFixed(2);
+      const ogpa = totalCredits > 0 ? totalPoints / totalCredits : 0;
+      $('cumulativeOgpaDisplay').innerText = ogpa.toFixed(2);
+      $('percentageDisplay').innerText = `Overall Percentage: ${(ogpa * 10).toFixed(2)}%`;
+      $('totalCreditsDisplay').innerText = totalCredits.toFixed(1);
+      $('totalPointsDisplay').innerText = totalPoints.toFixed(2);
+      const arrEl = $('arrearsDisplay');
+      arrEl.innerText = arrears;
+      arrEl.className = 'font-semibold ' + (arrears ? 'text-red-600' : 'text-slate-800');
+
+      window.__totals = { totalCredits, totalPoints, ogpa };
+      updateTargetPlanner();
     }
 
+    // GPA needed over the remaining credits to land on the target OGPA.
+    function updateTargetPlanner() {
+      const out = $('targetResult');
+      const { totalCredits = 0, totalPoints = 0 } = window.__totals || {};
+      const target = parseFloat($('targetOgpaInput').value);
+      const remaining = parseFloat($('remainingCreditsInput').value);
+      if (isNaN(target) || isNaN(remaining) || remaining <= 0) {
+        out.className = 'text-xs text-slate-500';
+        out.textContent = 'Enter a target and the credits you still have to take.';
+        return;
+      }
+      const needed = (target * (totalCredits + remaining) - totalPoints) / remaining;
+      if (needed > 10) {
+        out.className = 'text-xs text-red-600 font-medium';
+        out.textContent = `Not reachable: you would need ${needed.toFixed(2)} (above the 10.00 maximum). The best possible OGPA is ${((totalPoints + 10 * remaining) / (totalCredits + remaining)).toFixed(2)}.`;
+      } else if (needed <= 0) {
+        out.className = 'text-xs theme-text font-medium';
+        out.textContent = 'Target already secured, whatever you score in the remaining credits.';
+      } else {
+        out.className = 'text-xs theme-text font-medium';
+        out.textContent = `You need an average GPA of ${needed.toFixed(2)} (≈ ${(needed * 10).toFixed(1)}%) over the next ${remaining} credits.`;
+      }
+    }
+
+    /* ---------- Output: print, copy, export ---------- */
     function printAppSummaryView() { window.print(); }
+
     function copySummary() {
-      const text = `--- TNAU Multi-Semester Academic Summary ---\nStudent: ${document.getElementById('summaryName').innerText}\nID: ${document.getElementById('summaryId').innerText}\nCumulative OGPA: ${document.getElementById('cumulativeOgpaDisplay').innerText}`;
-      navigator.clipboard.writeText(text).then(() => alert('Summary copied to clipboard!'));
+      const lines = [
+        '--- TNAU Multi-Semester Academic Summary ---',
+        `Student: ${$('summaryName').innerText}`,
+        `ID: ${$('summaryId').innerText}`,
+        `Programme: ${$('degreeInput').value || '-'}`,
+        `Batch: ${getFormattedBatchString() || '-'}`,
+        ''
+      ];
+      document.querySelectorAll('.semester-card').forEach(card => {
+        const gpa = card.querySelector('.sem-gpa-badge').innerText;
+        if (parseFloat(gpa) > 0) lines.push(`${card.querySelector('.sem-title-input').value}: GPA ${gpa}`);
+      });
+      lines.push('', `Cumulative OGPA: ${$('cumulativeOgpaDisplay').innerText}`, $('percentageDisplay').innerText);
+      navigator.clipboard.writeText(lines.join('\n'))
+        .then(() => toast('Summary copied to clipboard', 'success'))
+        .catch(() => toast('Could not copy. Your browser blocked clipboard access.', 'error'));
+    }
+
+    function downloadFile(filename, content, mime) {
+      const url = URL.createObjectURL(new Blob([content], { type: mime }));
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function safeFilePart() {
+      return (($('studentIdInput').value || $('studentNameInput').value || 'profile').trim().replace(/[^\w\-]+/g, '_')) || 'profile';
+    }
+
+    function exportCSV() {
+      calculateAll();
+      // Quote fields, and neutralise cells that spreadsheets would treat as formulas.
+      const cell = (v) => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
+      const rows = [['Semester', 'Course Code', 'Course Title', 'Credit Hours', 'Marks', 'Grade Point', 'Credit Point', 'Status']];
+      document.querySelectorAll('.semester-card').forEach(card => {
+        const sem = card.querySelector('.sem-title-input').value;
+        card.querySelectorAll('.courseTableBody tr:not(.empty-course-row)').forEach(r => {
+          rows.push([sem, r.querySelector('.course-code').value, r.querySelector('.course-title').value, r.querySelector('.course-split').value,
+            r.querySelector('.course-marks').value, r.querySelector('.course-gp-input').value, r.querySelector('.course-cp').innerText, r.querySelector('.course-status').innerText.trim()]);
+        });
+      });
+      rows.push([], ['Cumulative OGPA', $('cumulativeOgpaDisplay').innerText]);
+      downloadFile(`TNAU_OGPA_${safeFilePart()}.csv`, '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+      toast('CSV downloaded', 'success');
+    }
+
+    function exportProfileJSON() {
+      if (!isLoading) collectActiveProfile();
+      downloadFile(`TNAU_backup_${safeFilePart()}.json`, JSON.stringify({ app: 'tnau-ogpa', version: 1, profile: cloudDataStore[activeProfileId] }, null, 2), 'application/json');
+      toast('Backup downloaded', 'success');
+    }
+
+    function importProfileJSON(input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { toast('That file is too large to be a backup.', 'error'); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          const p = parsed && parsed.profile;
+          if (!p || !Array.isArray(p.semesters)) throw new Error('bad shape');
+          const str = (v) => (v == null ? '' : String(v));
+          const clean = {
+            name: str(p.name), id: str(p.id), degree: str(p.degree), batch: str(p.batch),
+            passMark: Number.isFinite(+p.passMark) ? +p.passMark : 50,
+            theme: themePresets[p.theme] || p.theme === 'custom' ? p.theme : 'emerald',
+            customColor: /^#[0-9a-fA-F]{6}$/.test(str(p.customColor)) ? p.customColor : '#065f46',
+            semesters: p.semesters.map(s => ({
+              title: str(s.title),
+              courses: (Array.isArray(s.courses) ? s.courses : []).map(c => ({ code: str(c.code), title: str(c.title), split: str(c.split), marks: str(c.marks), gp: str(c.gp) }))
+            }))
+          };
+          const pid = 'prof_' + Date.now();
+          cloudDataStore[pid] = clean;
+          dirtyProfiles.add(pid);
+          activeProfileId = pid;
+          initProfilesList();
+          scheduleSave();
+          toast('Backup restored as a new profile', 'success');
+        } catch (e) { toast('That file is not a valid backup.', 'error'); }
+      };
+      reader.readAsText(file);
     }
   </script>
 </body>
