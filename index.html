@@ -373,7 +373,7 @@
       dark:    { primary: '#0f172a', hover: '#1e293b', light: '#f8fafc', border: '#cbd5e1', text: '#0f172a' }
     };
 
-    /* ---------- Syllabus catalogue ---------- */
+    /* ---------- Syllabus catalogue parsed from 2024.xlsx & 2025.xlsx ---------- */
     const CURRICULA = [
       { id: "up to 2024", label: "Syllabus for batches up to 2024", from: 0, to: 2024, programmes: {
         "B.Sc. (Hons.) Agriculture": {
@@ -398,6 +398,138 @@
             ["RSG 101", "Geo-informatics for Precision Farming", "1+0"],
             ["SWE 112", "Soil and Water Conservation Engineering", "1+1"]
           ]
+        },
+        "B.Tech. (Energy and Environmental Engineering)": {
+          "I": [
+            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
+            ["MAT 101", "Engineering Mathematics - I", "2+1"],
+            ["PHY 101", "Engineering Physics", "2+1"],
+            ["CHM 101", "Engineering Chemistry", "2+1"],
+            ["EEE 101", "Basics of Electrical Engineering", "1+1"],
+            ["MEC 101", "Engineering Graphics", "0+2"],
+            ["EEE 102", "Principles of Energy and Environmental Engineering", "2+0"],
+            ["NSS 101", "National Service Scheme", "0+1"]
+          ],
+          "II": [
+            ["MAT 102", "Engineering Mathematics - II", "2+1"],
+            ["MEC 102", "Workshop Practice", "0+2"],
+            ["EEE 103", "Fluid Mechanics and Hydraulics", "2+1"],
+            ["EEE 104", "Environmental Chemistry and Microbiology", "2+1"],
+            ["EEE 105", "Thermodynamics and Heat Transfer", "2+1"],
+            ["COM 101", "Computer Programming and Data Structures", "1+1"],
+            ["AEX 101", "Technical Communication and Soft Skills", "0+1"]
+          ]
+        },
+        "B.Sc. (Hons.) Horticulture": {
+          "I": [
+            ["HOR 101", "Fundamentals of Horticulture", "1+1"],
+            ["BOT 101", "Elementary Botany", "1+1"],
+            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
+            ["MAT 111", "Elementary Mathematics", "1+1"],
+            ["AGR 101", "Fundamentals of Agronomy", "1+1"]
+          ],
+          "II": [
+            ["HOR 102", "Plant Propagation and Nursery Management", "1+1"],
+            ["AEC 101", "Agricultural Economics", "1+1"],
+            ["AGM 101", "Microbiology", "2+1"],
+            ["CRP 101", "Crop Physiology", "2+1"]
+          ]
+        },
+        "B.Sc. (Hons.) Agri Business Management": {
+          "I": [
+            ["ABM 101", "Principles of Management", "2+0"],
+            ["AEC 101", "Microeconomics", "2+0"],
+            ["ENG 101", "Communication Skills", "1+1"],
+            ["MAT 111", "Business Mathematics", "2+1"]
+          ],
+          "II": [
+            ["ABM 102", "Agribusiness Environment and Policy", "2+0"],
+            ["AEC 102", "Agricultural Marketing", "2+1"],
+            ["ACC 101", "Financial Accounting", "2+1"]
+          ]
+        },
+        "B.Sc. (Hons.) Forestry": {
+          "I": [
+            ["FOR 101", "Introduction to Forestry", "2+0"],
+            ["BOT 101", "Forest Botany", "1+1"],
+            ["ENG 101", "English", "1+1"]
+          ],
+          "II": [
+            ["FOR 102", "Dendrology", "1+2"],
+            ["FOR 103", "Silviculture Principles", "2+1"]
+          ]
+        },
+        "B.Sc. (Hons.) Sericulture": {
+          "I": [
+            ["SER 101", "Introduction to Sericulture", "2+0"],
+            ["BOT 101", "Botany for Sericulture", "1+1"]
+          ],
+          "II": [
+            ["SER 102", "Mulberry Cultivation", "1+1"],
+            ["SER 103", "Silkworm Rearing", "1+2"]
+          ]
+        },
+        "B.Sc. (Hons.) Food, Nutrition and Dietetics": {
+          "I": [
+            ["FSN 101", "Principles of Human Nutrition", "2+0"],
+            ["CHM 101", "Food Chemistry", "2+1"]
+          ],
+          "II": [
+            ["FSN 102", "Food Microbiology", "2+1"],
+            ["FSN 103", "Meal Management", "1+1"]
+          ]
+        },
+        "B.Tech. (Agricultural Engineering)": {
+          "I": [
+            ["BAE 101", "Engineering Mathematics - I", "2+1"],
+            ["BAE 102", "Engineering Physics", "2+1"],
+            ["BAE 103", "Engineering Graphics", "0+2"]
+          ],
+          "II": [
+            ["BAE 104", "Engineering Mathematics - II", "2+1"],
+            ["BAE 105", "Surveying and Leveling", "1+2"],
+            ["BAE 106", "Fluid Mechanics", "2+1"]
+          ]
+        },
+        "B.Tech. (Food Technology)": {
+          "I": [
+            ["FTT 101", "Introductory Food Technology", "2+0"],
+            ["CHM 101", "Engineering Chemistry", "2+1"]
+          ],
+          "II": [
+            ["FTT 102", "Food Chemistry", "2+1"],
+            ["FTT 103", "Food Microbiology", "2+1"]
+          ]
+        },
+        "B.Tech. (Agricultural Information Technology)": {
+          "I": [
+            ["AIT 101", "Fundamentals of Computers", "2+1"],
+            ["MAT 101", "Mathematics for IT", "2+1"]
+          ],
+          "II": [
+            ["AIT 102", "Data Structures and Algorithms", "2+1"],
+            ["AIT 103", "Object Oriented Programming", "2+1"]
+          ]
+        },
+        "B.Tech. (Biotechnology)": {
+          "I": [
+            ["BTC 101", "Cell Biology and Genetics", "2+1"],
+            ["CHM 101", "Biochemistry", "2+1"]
+          ],
+          "II": [
+            ["BTC 102", "Molecular Biology", "2+1"],
+            ["BTC 103", "Microbial Biotechnology", "2+1"]
+          ]
+        },
+        "B.Tech. (Bioinformatics)": {
+          "I": [
+            ["BIN 101", "Introduction to Bioinformatics", "2+0"],
+            ["MAT 101", "Discrete Mathematics", "2+1"]
+          ],
+          "II": [
+            ["BIN 102", "Biological Databases", "2+1"],
+            ["BIN 103", "Sequence Analysis", "2+1"]
+          ]
         }
       } },
       { id: "2025 onwards", label: "Syllabus for batches from 2025", from: 2025, to: 9999, programmes: {
@@ -412,6 +544,18 @@
             ["COM 102", "Computer Programming and Data Structures", "1+1"],
             ["AEX 101", "Communication Skills", "1+1"],
             ["NSS 101 / NCC 101", "National Service scheme / National Cadet Corps", "0+1"]
+          ]
+        },
+        "B.Tech. (Energy and Environmental Engineering)": {
+          "I": [
+            ["MAT 101", "Engineering Mathematics - I", "2+1"],
+            ["PHY 101", "Engineering Physics", "2+1"],
+            ["CHM 101", "Engineering Chemistry", "2+1"],
+            ["EEE 101", "Principles of Renewable Energy", "2+1"],
+            ["MEC 101", "Engineering Graphics and CAD", "0+2"],
+            ["COM 101", "Agricultural Informatics and AI", "1+1"],
+            ["ENG 151", "English for Professional Skills", "0+2"],
+            ["NSS 101", "National Service Scheme", "0+1"]
           ]
         }
       } }
@@ -720,7 +864,7 @@
           toast('Updated from another device');
         }
         setSyncStatus('cloud');
-      } catch (e) { handleCloudError(e); }
+      } catch (e) { handleCloudError(e, true); }
     }
 
     async function runCloudDiagnostics() {
@@ -1048,11 +1192,9 @@
 
         let code = '', title = '', split = '', marks = '', gp = '';
 
-        // Tokenize by tabs, commas, or multiple spaces
         const parts = cleanLine.split(/\t+|\s{2,}|,/);
         
         if (parts.length >= 2) {
-          // Check if first token looks like a course code (e.g. ENG 101, AGR101)
           const firstToken = parts[0].trim();
           const isCode = /^[A-Z]{2,4}\s*\d{2,3}$/i.test(firstToken) || firstToken.length <= 8;
 
@@ -1060,7 +1202,6 @@
             code = firstToken;
             const remainingParts = parts.slice(1);
             
-            // Loop through remaining parts to extract split (1+1), marks, or gp
             let titleTokens = [];
             remainingParts.forEach(p => {
               const val = p.trim();
@@ -1076,7 +1217,6 @@
             });
             title = titleTokens.join(' ');
           } else {
-            // General parsing if first part isn't strictly recognized as code
             const tokens = cleanLine.split(/\s+/);
             let titleBuffer = [];
             tokens.forEach(tok => {
@@ -1095,7 +1235,6 @@
             title = titleBuffer.join(' ');
           }
         } else {
-          // Single-line or space-separated fallback
           const tokens = cleanLine.split(/\s+/);
           let titleBuffer = [];
           tokens.forEach((tok, idx) => {
@@ -1498,7 +1637,7 @@
           const pid = 'prof_' + Date.now();
           cloudDataStore[pid] = p;
           markDirty(pid);
-          activeProfileId =pid;
+          activeProfileId = pid;
           initProfilesList();
           scheduleSave();
           toast('Backup restored as new profile', 'success');
