@@ -12,28 +12,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons CDN (version pinned so a future release can't break the page) -->
   <script src="https://unpkg.com/lucide@0.469.0"></script>
-  <!-- Firebase SDKs -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteField, onSnapshot } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBZqqMw39EvqjaB4_SxrpkLDC_gQ1NdLvE",
-      authDomain: "tnau-gpa-and-ogpa-engine.firebaseapp.com",
-      projectId: "tnau-gpa-and-ogpa-engine",
-      storageBucket: "tnau-gpa-and-ogpa-engine.firebasestorage.app",
-      messagingSenderId: "473229147697",
-      appId: "1:473229147697:web:36257d7cfa2e6859825f10",
-      measurementId: "G-VGLD0XQ0EH"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    window.firebaseApp = { auth, db, doc, setDoc, getDoc, updateDoc, deleteField, onSnapshot, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
-  </script>
+  <!-- Google Identity Services (sign in with Google) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
@@ -106,57 +86,6 @@
   <!-- TOASTS -->
   <div id="toastHost" class="fixed bottom-4 right-4 z-[60] space-y-2 no-print" aria-live="polite"></div>
 
-  <!-- AUTHENTICATION MODAL -->
-  <div id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-6">
-      <div class="flex justify-between items-start">
-        <div class="space-y-1">
-          <div class="inline-flex p-3 theme-card-light theme-text rounded-2xl mb-1">
-            <i data-lucide="cloud" class="w-6 h-6"></i>
-          </div>
-          <h3 id="authModalTitle" class="text-lg font-bold text-slate-800">Cloud Login Required to Store</h3>
-          <p id="authModalSubtitle" class="text-xs text-slate-500">Sign in with email and password to securely sync your profiles across devices.</p>
-        </div>
-        <button onclick="closeAuthModal()" aria-label="Close" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-        <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="py-2 rounded-lg bg-white text-slate-800 shadow-sm transition">Sign In</button>
-        <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="py-2 rounded-lg text-slate-500 hover:text-slate-800 transition">Create Account</button>
-      </div>
-
-      <div id="authError" class="hidden text-xs bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2" role="alert"></div>
-
-      <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4 text-xs">
-        <div>
-          <label for="loginEmail" class="block font-semibold text-slate-700 mb-1">Email Address</label>
-          <input type="email" id="loginEmail" required autocomplete="email" placeholder="name@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
-        </div>
-        <div>
-          <label for="loginPassword" class="block font-semibold text-slate-700 mb-1">Password</label>
-          <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="Enter your password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
-        </div>
-        <button type="submit" id="loginSubmitBtn" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm disabled:opacity-60">Sign In & Sync</button>
-        <button type="button" onclick="handlePasswordReset()" class="w-full text-center text-slate-500 hover:text-slate-800 underline underline-offset-2">Forgot password?</button>
-      </form>
-
-      <form id="registerForm" onsubmit="handleRegisterSubmit(event)" class="space-y-4 text-xs hidden">
-        <div>
-          <label for="regEmail" class="block font-semibold text-slate-700 mb-1">Email Address</label>
-          <input type="email" id="regEmail" required autocomplete="email" placeholder="name@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
-        </div>
-        <div>
-          <label for="regPassword" class="block font-semibold text-slate-700 mb-1">Password (6+ chars)</label>
-          <input type="password" id="regPassword" required minlength="6" autocomplete="new-password" placeholder="Create a secure password" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
-        </div>
-        <button type="submit" id="registerSubmitBtn" class="w-full py-2.5 theme-btn-primary font-bold rounded-xl transition shadow-sm disabled:opacity-60">Register Account & Sync</button>
-        <p class="text-[11px] text-slate-400 text-center">Anything you entered as a guest on this device is copied into your new account.</p>
-      </form>
-    </div>
-  </div>
-
   <!-- Header -->
   <header id="mainHeader" class="theme-header text-white shadow-lg no-print transition-colors duration-300">
     <div class="max-w-6xl mx-auto px-4 py-6">
@@ -209,10 +138,10 @@
         </div>
         <div>
           <h1 class="text-sm font-bold text-slate-800">
-            Cloud Account: <span id="currentUserDisplay" class="theme-text font-extrabold">Guest Mode</span>
+            Google Account: <span id="currentUserDisplay" class="theme-text font-extrabold">Guest Mode</span>
           </h1>
           <p class="text-slate-500 text-xs">
-            <span id="syncStatus" class="font-semibold">Ready</span> • Search profiles by name/ID. Log in to sync across devices.
+            <span id="syncStatus" class="font-semibold">Ready</span> <button type="button" onclick="runCloudDiagnostics()" class="underline text-slate-500 hover:text-slate-800">Test cloud</button> • Sign in with Google to keep your data in your own Google Drive and use it on any device.
           </p>
         </div>
       </div>
@@ -431,7 +360,8 @@
     let activeProfileId = DEFAULT_PROFILE_ID;
     let isLoading = false;      // true while the DOM is being rebuilt from stored data
     let saveTimer = null;
-    let unsubscribeCloud = null;
+    let cloudReady = false;      // true once the real cloud copy has been received; nothing is written before that
+    const withTimeout = (promise, ms) => Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
     const dirtyProfiles = new Set();     // profiles changed locally and not yet written to the cloud
     const deletedProfiles = new Set();   // profiles deleted locally and not yet removed from the cloud
     let cloudDataStore = defaultStore();
@@ -443,19 +373,6 @@
       dark:    { primary: '#0f172a', hover: '#1e293b', light: '#f8fafc', border: '#cbd5e1', text: '#0f172a' }
     };
 
-    const AUTH_ERRORS = {
-      'auth/invalid-credential': 'Incorrect email or password.',
-      'auth/wrong-password': 'Incorrect email or password.',
-      'auth/user-not-found': 'No account found with that email.',
-      'auth/invalid-email': 'Please enter a valid email address.',
-      'auth/email-already-in-use': 'An account with this email already exists. Try signing in.',
-      'auth/weak-password': 'Password must be at least 6 characters.',
-      'auth/too-many-requests': 'Too many attempts. Please wait a bit and try again.',
-      'auth/network-request-failed': 'Network error. Check your connection and retry.',
-      'auth/unauthorized-domain': 'This website address is not authorised for login yet. In Firebase Console, open Authentication, then Settings, then Authorized domains, and add this site\'s domain.',
-      'auth/operation-not-allowed': 'Email/password sign-in is switched off. In Firebase Console, open Authentication, then Sign-in method, and enable Email/Password.',
-      'auth/user-disabled': 'This account has been disabled.'
-    };
 
     /* ---------- Syllabus catalogue ----------
        One entry per curriculum set. A batch start year picks the set (from..to inclusive);
@@ -1395,26 +1312,28 @@
     function icons() { if (window.lucide) window.lucide.createIcons(); }
     function $(id) { return document.getElementById(id); }
 
-    function toast(message, type = 'info') {
+    function toast(message, type = 'info', ms = 3500) {
       const colors = { info: 'bg-slate-800 text-white', success: 'bg-emerald-700 text-white', error: 'bg-red-600 text-white' };
       const el = document.createElement('div');
       el.className = `toast ${colors[type] || colors.info} text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg max-w-xs`;
       el.textContent = message;
       $('toastHost').appendChild(el);
-      setTimeout(() => el.remove(), 3500);
+      setTimeout(() => el.remove(), ms);
     }
 
-    function setSyncStatus(state) {
+    function setSyncStatus(state, detail) {
       const el = $('syncStatus');
       const map = {
         saving: ['Saving…', 'text-slate-500'],
         local:  ['Saved on this device', 'text-slate-600'],
-        cloud:  ['Synced to cloud', 'theme-text'],
+        cloud:  ['Saved in your Google Drive', 'theme-text'],
         error:  ['Save failed', 'text-red-600'],
+        offline:['Not connected to Google yet. Nothing is saved until it connects', 'text-red-600'],
+        reauth: ['Session expired. Tap Reconnect to keep syncing', 'text-red-600'],
         ready:  ['Ready', 'text-slate-500']
       };
       const [text, cls] = map[state] || map.ready;
-      el.textContent = text;
+      el.textContent = detail ? `${text} (${detail})` : text;
       el.className = `font-semibold ${cls}`;
     }
 
@@ -1438,32 +1357,51 @@
       return defaultStore();
     }
 
+    /* ---------- Google account + Google Drive storage ----------
+       Everything is stored in the signed-in person's OWN Google Drive, in the hidden "app data" folder
+       (permission: drive.appdata). Nothing is kept on any server owned by the developer.
+       Several devices stay in step by merging per profile (newest edit wins) before every save. */
+    const GOOGLE_CLIENT_ID = '473229147697-o030ithbphjntcjq1bk0iumpraofuiul.apps.googleusercontent.com';
+    const DRIVE_FILE_NAME = 'tnau-ogpa-data.json';
+    const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+    const GOOGLE_SCOPES = DRIVE_SCOPE + ' https://www.googleapis.com/auth/userinfo.email';
+    const HINT_KEY = 'tnau_google_hint_v1';
+    const POLL_MS = window.__POLL_MS || 30000;
+
+    let tokenClient = null, accessToken = null, tokenExpiry = 0;
+    let driveFileId = null, lastRemoteModified = null, cloudPoll = null;
+    let needsReconnect = false, silentAttempt = false, flushing = false, flushAgain = false;
+    let tombstones = {};          // profileId -> time it was deleted (so a deletion survives merging)
+
+    function getHint() { try { return localStorage.getItem(HINT_KEY) || ''; } catch (e) { return ''; } }
+    function googleConfigured() { return GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('PASTE_'); }
+    function markDirty(pid) { if (!cloudDataStore[pid]) return; cloudDataStore[pid].updatedAt = Date.now(); dirtyProfiles.add(pid); }
+    function markDeleted(pid) { tombstones[pid] = Date.now(); dirtyProfiles.delete(pid); deletedProfiles.add(pid); }
+
     /* ---------- Boot ---------- */
     document.addEventListener('DOMContentLoaded', () => {
-      renderAuthBar(false);
-      // Start in guest mode immediately so the page is usable even if Firebase is slow or blocked.
+      // Start in guest mode immediately so the page is usable even if Google is slow or blocked.
       cloudDataStore = loadGuestStore();
       restoreActiveProfileId();
+      renderAuthBar();
       initProfilesList();
       icons();
 
       let tries = 0;
-      const checkInterval = setInterval(() => {
-        if (window.firebaseApp) {
-          clearInterval(checkInterval);
-          initFirebaseListener();
-        } else if (++tries > 50) {
-          clearInterval(checkInterval);
-          toast('Cloud sync unavailable. Working in offline guest mode.', 'error');
-        }
+      const t = setInterval(() => {
+        if (window.google && google.accounts && google.accounts.oauth2) {
+          clearInterval(t);
+          initGoogle();
+          if (getHint() && googleConfigured()) googleSignIn(true);   // try to resume quietly
+        } else if (++tries > 50) clearInterval(t);
       }, 100);
     });
 
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAuthModal(); });
-    $('authModal') && $('authModal').addEventListener('click', (e) => { if (e.target === $('authModal')) closeAuthModal(); });
-
-    // Flush pending edits when the tab is hidden or closed.
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveTimer) flushSave(); });
+    // Flush pending edits when the tab is hidden or closed; check for newer data when it comes back.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && saveTimer) flushSave();
+      if (document.visibilityState === 'visible') pollRemote();
+    });
     window.addEventListener('pagehide', () => { if (saveTimer) flushSave(); });
 
     function restoreActiveProfileId() {
@@ -1474,167 +1412,242 @@
       } catch (e) { activeProfileId = Object.keys(cloudDataStore)[0]; }
     }
 
-    function initFirebaseListener() {
-      const { auth, onAuthStateChanged } = window.firebaseApp;
-      onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          currentUser = user;
-          $('currentUserDisplay').innerText = user.email;
-          renderAuthBar(true);
-          startCloudSync(user.uid);
-        } else {
-          const wasLoggedIn = !!currentUser;
-          stopCloudSync();
-          currentUser = null;
-          $('currentUserDisplay').innerText = 'Guest Mode';
-          renderAuthBar(false);
-          if (wasLoggedIn) {
-            // Replace cloud data on screen with this device's guest data.
-            cloudDataStore = loadGuestStore();
-            restoreActiveProfileId();
-            initProfilesList();
-          }
-          setSyncStatus('ready');
-        }
-      });
-    }
-
-    function renderAuthBar(isLoggedIn) {
-      const container = $('authActionContainer');
-      container.innerHTML = isLoggedIn
-        ? `<button onclick="triggerLogout()" class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1.5">
-             <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Logout
-           </button>`
-        : `<button onclick="openAuthModal()" class="px-3 py-1.5 theme-btn-primary rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-             <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Login to Cloud
-           </button>`;
+    function renderAuthBar() {
+      const c = $('authActionContainer');
+      const hint = getHint();
+      const btn = 'px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5';
+      if (currentUser) {
+        c.innerHTML = (needsReconnect ? `<button onclick="googleSignIn()" class="${btn} theme-btn-primary mr-2"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reconnect</button>` : '')
+          + `<button onclick="triggerLogout()" class="${btn} bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"><i data-lucide="log-out" class="w-3.5 h-3.5"></i> Logout</button>`;
+      } else {
+        c.innerHTML = `<button onclick="googleSignIn()" class="${btn} theme-btn-primary"><i data-lucide="log-in" class="w-3.5 h-3.5"></i> ${hint ? 'Reconnect Google' : 'Continue with Google'}</button>`;
+      }
+      $('currentUserDisplay').innerText = currentUser ? currentUser.email : (hint ? `${hint} (tap Reconnect)` : 'Guest Mode');
       icons();
     }
 
-    /* ---------- Auth ---------- */
-    function showAuthError(msg) {
-      const el = $('authError');
-      if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
-      el.textContent = msg; el.classList.remove('hidden');
-    }
-    function authMessage(err) { return AUTH_ERRORS[err && err.code] || ('Something went wrong: ' + (err && err.message ? err.message : err)); }
-
-    function openAuthModal() { showAuthError(''); $('authModal').classList.remove('hidden'); setTimeout(() => $('loginEmail').focus(), 50); }
-    function closeAuthModal() { $('authModal').classList.add('hidden'); }
-
-    function switchAuthTab(tab) {
-      const isLogin = tab === 'login';
-      showAuthError('');
-      $('loginForm').classList.toggle('hidden', !isLogin);
-      $('registerForm').classList.toggle('hidden', isLogin);
-      $('tabLoginBtn').className = isLogin ? 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition' : 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
-      $('tabRegisterBtn').className = !isLogin ? 'py-2 rounded-lg bg-white text-slate-800 shadow-sm transition' : 'py-2 rounded-lg text-slate-500 hover:text-slate-800 transition';
-      $('authModalTitle').innerText = isLogin ? 'Cloud Login Required to Store' : 'Create Cloud Account';
+    /* ---------- Sign in ---------- */
+    function initGoogle() {
+      if (tokenClient) return true;
+      if (!googleConfigured() || !(window.google && google.accounts && google.accounts.oauth2)) return false;
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: GOOGLE_SCOPES,
+        callback: onGoogleToken,
+        error_callback: onGoogleError
+      });
+      return true;
     }
 
-    async function handleLoginSubmit(event) {
-      event.preventDefault();
-      if (!window.firebaseApp) { showAuthError('Cloud service is not available right now.'); return; }
-      const email = $('loginEmail').value.trim();
-      const pass = $('loginPassword').value;
-      const btn = $('loginSubmitBtn');
-      btn.disabled = true; showAuthError('');
-      try {
-        await window.firebaseApp.signInWithEmailAndPassword(window.firebaseApp.auth, email, pass);
-        $('loginPassword').value = '';
-        closeAuthModal();
-        toast('Signed in', 'success');
-      } catch (err) { showAuthError(authMessage(err)); }
-      finally { btn.disabled = false; }
+    function googleSignIn(silent) {
+      silentAttempt = silent === true;      // an onclick call passes no argument, so it is a normal (visible) sign-in
+      if (!googleConfigured()) { toast('Google sign-in is not set up yet. The developer still has to add the Google Client ID.', 'error', 8000); return; }
+      if (!initGoogle()) { toast('Google sign-in could not load. Check your connection or ad-blocker and try again.', 'error', 8000); return; }
+      const opts = { prompt: silentAttempt ? 'none' : '' };
+      if (getHint()) opts.hint = getHint();
+      tokenClient.requestAccessToken(opts);
     }
 
-    async function handleRegisterSubmit(event) {
-      event.preventDefault();
-      if (!window.firebaseApp) { showAuthError('Cloud service is not available right now.'); return; }
-      const email = $('regEmail').value.trim();
-      const pass = $('regPassword').value;
-      const btn = $('registerSubmitBtn');
-      btn.disabled = true; showAuthError('');
-      try {
-        await window.firebaseApp.createUserWithEmailAndPassword(window.firebaseApp.auth, email, pass);
-        $('regPassword').value = '';
-        closeAuthModal();
-        toast('Account created', 'success');
-      } catch (err) { showAuthError(authMessage(err)); }
-      finally { btn.disabled = false; }
+    function onGoogleError(err) {
+      const type = err && err.type;
+      if (silentAttempt) { silentAttempt = false; return; }    // quiet resume failed: the Reconnect button is already showing
+      if (type === 'popup_closed') toast('Sign-in was cancelled.');
+      else if (type === 'popup_failed_to_open') toast('The sign-in window was blocked. Allow pop-ups for this site and try again.', 'error', 8000);
+      else toast('Google sign-in failed' + (type ? ` (${type})` : '') + '.', 'error');
     }
 
-    async function handlePasswordReset() {
-      const email = $('loginEmail').value.trim();
-      if (!email) { showAuthError('Enter your email above first, then click "Forgot password?".'); return; }
-      try {
-        await window.firebaseApp.sendPasswordResetEmail(window.firebaseApp.auth, email);
-        showAuthError('');
-        toast('Password reset email sent (check spam too)', 'success');
-      } catch (err) { showAuthError(authMessage(err)); }
+    async function onGoogleToken(resp) {
+      silentAttempt = false;
+      if (!resp || resp.error) { onGoogleError({ type: resp && resp.error }); return; }
+      if (google.accounts.oauth2.hasGrantedAllScopes && !google.accounts.oauth2.hasGrantedAllScopes(resp, DRIVE_SCOPE)) {
+        toast('Please tick the box that lets this app store its data in your Google Drive, then try again.', 'error', 8000);
+        return;
+      }
+      accessToken = resp.access_token;
+      tokenExpiry = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+      needsReconnect = false;
+      if (!currentUser) {
+        try {
+          const res = await withTimeout(fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } }), 10000);
+          const info = await res.json();
+          currentUser = { email: info.email || 'Google account' };
+          try { localStorage.setItem(HINT_KEY, currentUser.email); } catch (e) { /* storage blocked */ }
+        } catch (e) { currentUser = { email: 'Google account' }; }
+      }
+      renderAuthBar();
+      if (!cloudReady) await connectDrive();
+      else { setSyncStatus('cloud'); if (dirtyProfiles.size || deletedProfiles.size) flushSave(); }
     }
 
     async function triggerLogout() {
-      if (!confirm('Are you sure you want to log out?')) return;
-      if (saveTimer) await flushSave();
-      await window.firebaseApp.signOut(window.firebaseApp.auth);
+      if (!confirm('Log out? Your data stays safe in your own Google Drive.')) return;
+      if (saveTimer || dirtyProfiles.size) { try { await flushSave(); } catch (e) { /* offline: nothing more to do */ } }
+      stopPolling();
+      accessToken = null; tokenExpiry = 0; cloudReady = false; needsReconnect = false;
+      currentUser = null; driveFileId = null; lastRemoteModified = null; tombstones = {};
+      dirtyProfiles.clear(); deletedProfiles.clear();
+      try { localStorage.removeItem(HINT_KEY); } catch (e) { /* storage blocked */ }
+      cloudDataStore = loadGuestStore();      // the signed-in data is not kept on this device
+      restoreActiveProfileId();
+      renderAuthBar();
+      initProfilesList();
+      setSyncStatus('ready');
       toast('Logged out');
     }
 
-    /* ---------- Storage (guest = localStorage, logged in = Firestore) ---------- */
+    /* ---------- Google Drive (app-data folder) ---------- */
+    async function driveFetch(url, opts = {}) {
+      if (!accessToken || Date.now() > tokenExpiry - 30000) throw Object.assign(new Error('token expired'), { code: 'auth-expired' });
+      const res = await withTimeout(fetch(url, { ...opts, headers: { Authorization: `Bearer ${accessToken}`, ...(opts.headers || {}) } }), 20000);
+      if (res.status === 401) throw Object.assign(new Error('token rejected'), { code: 'auth-expired' });
+      if (!res.ok) {
+        let msg = '';
+        try { msg = (await res.json()).error.message || ''; } catch (e) { /* no body */ }
+        throw Object.assign(new Error(msg || res.statusText), { code: 'http-' + res.status });
+      }
+      return res;
+    }
+
+    async function driveFind() {
+      const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)&pageSize=1`);
+      const json = await res.json();
+      return (json.files && json.files[0]) || null;
+    }
+
+    async function driveRead(id) {
+      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`);
+      return res.json();
+    }
+
+    async function driveWrite(id, obj) {
+      const body = JSON.stringify(obj);
+      if (id) {
+        const res = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id,modifiedTime`,
+          { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
+        return res.json();
+      }
+      const boundary = 'tnau' + Date.now();
+      const meta = JSON.stringify({ name: DRIVE_FILE_NAME, parents: ['appDataFolder'], mimeType: 'application/json' });
+      const multipart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+      const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime',
+        { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: multipart });
+      return res.json();
+    }
+
+    function normalizeRemote(d) { return { profiles: (d && d.profiles) || {}, deleted: (d && d.deleted) || {} }; }
+
+    // Newest edit wins per profile; a deletion wins only if it happened after the profile's last edit.
+    function mergeStores(localProfiles, localDeleted, remote) {
+      const rp = remote.profiles || {}, rd = remote.deleted || {};
+      const deleted = {};
+      new Set([...Object.keys(localDeleted), ...Object.keys(rd)]).forEach(pid => { deleted[pid] = Math.max(localDeleted[pid] || 0, rd[pid] || 0); });
+      const profiles = {};
+      new Set([...Object.keys(localProfiles), ...Object.keys(rp)]).forEach(pid => {
+        const l = localProfiles[pid], r = rp[pid];
+        const pick = !l ? r : !r ? l : ((r.updatedAt || 0) > (l.updatedAt || 0) ? r : l);
+        if (deleted[pid] && deleted[pid] >= (pick.updatedAt || 0)) return;
+        profiles[pid] = pick;
+      });
+      if (!Object.keys(profiles).length) profiles[DEFAULT_PROFILE_ID] = defaultStore()[DEFAULT_PROFILE_ID];
+      return { profiles, deleted };
+    }
+
     function stableStringify(v) {
       if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
       if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
       return JSON.stringify(v);
     }
 
-    function stopCloudSync() {
-      if (unsubscribeCloud) { try { unsubscribeCloud(); } catch (e) { /* already closed */ } unsubscribeCloud = null; }
-      dirtyProfiles.clear(); deletedProfiles.clear();
+    function explainCloudError(code) {
+      const c = String(code || '').toLowerCase();
+      if (c.includes('auth-expired') || c.includes('http-401')) return 'Your Google session expired. Press Reconnect.';
+      if (c.includes('http-403')) return 'Google Drive refused access. Check that the Google Drive API is enabled for the project, and that you allowed the app to store its data in your Drive.';
+      if (c.includes('http-404')) return 'The Drive file was not found. Try again.';
+      if (c.includes('http-429')) return 'Google is rate-limiting requests. Wait a minute and try again.';
+      if (c.includes('timeout') || c.includes('failed to fetch') || c.includes('networkerror')) return 'No answer from Google. Check your internet connection or ad-blocker.';
+      return 'Unexpected error. Please send this code to the developer.';
     }
 
-    /* Live two-way sync: the account document is watched, so changes made on another device
-       appear here without a refresh, and each device only writes the profiles it changed
-       (an old copy on one device can no longer wipe newer data from another). */
-    function startCloudSync(uid) {
-      stopCloudSync();
-      const { db, doc, onSnapshot } = window.firebaseApp;
-      let first = true;
+    function handleCloudError(e, quiet) {
+      console.error('Cloud error:', e);
+      const code = (e && (e.code || e.message)) || 'unknown';
+      if (code === 'auth-expired') { accessToken = null; needsReconnect = true; setSyncStatus('reauth'); renderAuthBar(); return; }
+      setSyncStatus('error', code);
+      if (!quiet) toast(explainCloudError(code), 'error', 8000);
+    }
+
+    /* Called once after sign-in: load the person's data from their Drive (or start it from guest data). */
+    async function connectDrive() {
       setSyncStatus('saving');
-      unsubscribeCloud = onSnapshot(doc(db, 'users', uid), async (snap) => {
-        if (first) {
-          first = false;
-          if (snap.exists() && Object.keys(snap.data()).length) {
-            cloudDataStore = snap.data();
-            setSyncStatus('cloud');
-          } else {
-            // First login on a new account: carry over anything entered as a guest.
-            const guest = loadGuestStore();
-            cloudDataStore = storeHasContent(guest) ? guest : defaultStore();
-            if (storeHasContent(guest)) toast('Your guest data was copied into your account', 'success');
-            Object.keys(cloudDataStore).forEach(pid => dirtyProfiles.add(pid));
-            await flushSave();
-          }
-          restoreActiveProfileId();
-          initProfilesList();
-          return;
+      try {
+        const file = await driveFind();
+        driveFileId = file ? file.id : null;
+        lastRemoteModified = file ? file.modifiedTime : null;
+        const remote = file ? normalizeRemote(await driveRead(file.id)) : null;
+        dirtyProfiles.clear(); deletedProfiles.clear();
+        if (remote && Object.keys(remote.profiles).length) {
+          cloudDataStore = remote.profiles; tombstones = remote.deleted;
+        } else {
+          const guest = loadGuestStore();     // first sign-in: carry over anything entered as a guest
+          cloudDataStore = storeHasContent(guest) ? guest : defaultStore();
+          tombstones = {};
+          if (storeHasContent(guest)) toast('Your guest data was copied into your Google Drive', 'success');
+          Object.keys(cloudDataStore).forEach(pid => markDirty(pid));
         }
-        if (snap.metadata && snap.metadata.hasPendingWrites) return;   // echo of our own write
-        if (!snap.exists() || saveTimer) return;                        // unsaved local edits will be merged by our next save
-        const remote = snap.data();
-        if (stableStringify(remote) === stableStringify(cloudDataStore)) return;
-        cloudDataStore = remote;
-        if (!cloudDataStore[activeProfileId]) activeProfileId = Object.keys(cloudDataStore)[0];
+        cloudReady = true;
+        restoreActiveProfileId();
         initProfilesList();
+        if (dirtyProfiles.size) await flushSave();
+        else setSyncStatus('cloud');
+        startPolling();
+      } catch (e) { handleCloudError(e); }
+    }
+
+    function startPolling() { stopPolling(); cloudPoll = setInterval(pollRemote, POLL_MS); }
+    function stopPolling() { clearInterval(cloudPoll); cloudPoll = null; }
+
+    // Pick up changes made on another device (checked every 30 s and whenever the tab becomes visible).
+    async function pollRemote() {
+      if (!currentUser || !cloudReady || !driveFileId || saveTimer || flushing || dirtyProfiles.size || deletedProfiles.size) return;
+      try {
+        const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?fields=modifiedTime`);
+        const { modifiedTime } = await res.json();
+        if (modifiedTime === lastRemoteModified) return;
+        const remote = normalizeRemote(await driveRead(driveFileId));
+        lastRemoteModified = modifiedTime;
+        const merged = mergeStores(cloudDataStore, tombstones, remote);
+        tombstones = merged.deleted;
+        if (stableStringify(merged.profiles) !== stableStringify(cloudDataStore)) {
+          cloudDataStore = merged.profiles;
+          if (!cloudDataStore[activeProfileId]) activeProfileId = Object.keys(cloudDataStore)[0];
+          initProfilesList();
+          toast('Updated from another device');
+        }
         setSyncStatus('cloud');
-        toast('Updated from another device');
-      }, (err) => {
-        console.error('Cloud sync error:', err);
-        setSyncStatus('error');
-        toast(err && err.code === 'permission-denied'
-          ? 'Cloud access was denied. The Firestore rules must allow signed-in users to read and write their own data.'
-          : 'Cloud sync problem. Check your connection.', 'error');
-      });
+      } catch (e) { handleCloudError(e, true); }
+    }
+
+    /* ---------- Cloud diagnostics ("Test cloud") ---------- */
+    async function runCloudDiagnostics() {
+      if (!googleConfigured()) { alert('The Google Client ID has not been added to this page yet (GOOGLE_CLIENT_ID), so Google sign-in cannot work. The developer needs to add it.'); return; }
+      if (!currentUser || !accessToken) { alert('You are not connected to Google. Press "Continue with Google" (or "Reconnect") first.'); return; }
+      toast('Testing your Google Drive connection (up to 40 seconds)...');
+      let readErr = null, writeErr = null, file = null, content = null;
+      try { file = await driveFind(); if (file) content = await driveRead(file.id); } catch (e) { readErr = (e && (e.code || e.message)) || String(e); }
+      if (!readErr) {
+        try { await driveWrite(file ? file.id : null, content || { app: 'tnau-ogpa', version: 2, profiles: {}, deleted: {} }); }
+        catch (e) { writeErr = (e && (e.code || e.message)) || String(e); }
+      }
+      const lines = [
+        `Account: ${currentUser.email}`,
+        `Read from Drive:  ${readErr ? 'FAILED (' + readErr + ')' : 'OK'}`,
+        `Write to Drive:   ${readErr ? 'not tested' : writeErr ? 'FAILED (' + writeErr + ')' : 'OK'}`
+      ];
+      const problem = readErr || writeErr;
+      lines.push('', problem ? explainCloudError(problem) : 'Everything works. If data does not appear on another device, sign in there with the same Google account.');
+      alert(lines.join('\n'));
+      if (problem) handleCloudError({ code: problem }, true); else setSyncStatus(cloudReady ? 'cloud' : 'saving');
     }
 
     function scheduleSave() {
@@ -1647,760 +1660,22 @@
       clearTimeout(saveTimer);
       saveTimer = null;
       try { localStorage.setItem(ACTIVE_KEY, activeProfileId); } catch (e) { /* storage blocked */ }
-      if (currentUser) {
-        const { db, doc, setDoc, updateDoc, deleteField } = window.firebaseApp;
-        const ref = doc(db, 'users', currentUser.uid);
-        const changed = [...dirtyProfiles].filter(pid => cloudDataStore[pid]);
-        const removed = [...deletedProfiles];
-        dirtyProfiles.clear(); deletedProfiles.clear();
-        try {
-          if (changed.length) {
-            const payload = {};
-            changed.forEach(pid => { payload[pid] = cloudDataStore[pid]; });
-            await setDoc(ref, payload, { merge: true });      // only the profiles this device changed
-          }
-          if (removed.length) {
-            const del = {};
-            removed.forEach(pid => { del[pid] = deleteField(); });
-            await updateDoc(ref, del);
-          }
-          setSyncStatus('cloud');
-        } catch (e) {
-          console.error('Error saving to cloud:', e);
-          changed.forEach(pid => dirtyProfiles.add(pid));     // retry on the next save
-          removed.forEach(pid => deletedProfiles.add(pid));
-          setSyncStatus('error');
-        }
-      } else {
+      if (!currentUser) {
         try {
           localStorage.setItem(GUEST_KEY, JSON.stringify(cloudDataStore));
+          dirtyProfiles.clear(); deletedProfiles.clear();
           setSyncStatus('local');
         } catch (e) { setSyncStatus('error'); }
-      }
-    }
-
-    /* ---------- Profiles ---------- */
-    function initProfilesList() {
-      renderProfileSwitcher('');
-      $('profileSearchInput').value = '';
-      loadProfileData(activeProfileId);
-    }
-
-    // Rebuilds the dropdown only; reloads the sheet only if the active profile fell out of the filter.
-    function renderProfileSwitcher(filterQuery) {
-      const switcher = $('profileSwitcher');
-      switcher.innerHTML = '';
-      const q = (filterQuery || '').toLowerCase();
-      let matches = 0, hasActive = false;
-
-      for (const [pid, info] of Object.entries(cloudDataStore)) {
-        const label = profileLabel(info);
-        if (q && !label.toLowerCase().includes(q)) continue;
-        matches++;
-        const opt = document.createElement('option');
-        opt.value = pid;
-        opt.textContent = label;
-        switcher.appendChild(opt);
-        if (pid === activeProfileId) hasActive = true;
-      }
-
-      if (!matches) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = 'No match found';
-        switcher.appendChild(opt);
-        return false;
-      }
-      if (!hasActive) { activeProfileId = switcher.options[0].value; switcher.value = activeProfileId; return true; }
-      switcher.value = activeProfileId;
-      return false;
-    }
-
-    function filterProfileDropdown(query) {
-      const changed = renderProfileSwitcher(query);
-      if (changed) loadProfileData(activeProfileId);
-    }
-
-    function switchActiveProfile(profileId) {
-      if (!profileId) return;
-      activeProfileId = profileId;
-      loadProfileData(profileId);
-      scheduleSave();
-    }
-
-    function promptCreateNewProfile() {
-      const inputVal = prompt('Enter Student Name or ID Number for new profile:');
-      if (!inputVal || !inputVal.trim()) return;
-
-      const newPid = 'prof_' + Date.now();
-      const cleanVal = inputVal.trim();
-      const isLikelyId = /^[A-Za-z0-9\-\/]+$/.test(cleanVal) && cleanVal.length > 3 && /\d/.test(cleanVal);
-
-      cloudDataStore[newPid] = {
-        name: isLikelyId ? '' : cleanVal,
-        id: isLikelyId ? cleanVal : '',
-        semesters: []
-      };
-      activeProfileId = newPid;
-      dirtyProfiles.add(newPid);
-      initProfilesList();
-      scheduleSave();
-    }
-
-    function deleteActiveProfile() {
-      if (Object.keys(cloudDataStore).length <= 1) {
-        toast('You must keep at least one student profile.', 'error');
         return;
       }
-      if (!confirm(`Delete "${profileLabel(cloudDataStore[activeProfileId])}"? This cannot be undone.`)) return;
-      deletedProfiles.add(activeProfileId); dirtyProfiles.delete(activeProfileId);
-      delete cloudDataStore[activeProfileId];
-      activeProfileId = Object.keys(cloudDataStore)[0];
-      initProfilesList();
-      scheduleSave();
-    }
-
-    function handleProfileDetailInput() {
-      const opt = $('profileSwitcher').querySelector(`option[value="${CSS.escape(activeProfileId)}"]`);
-      if (opt) opt.textContent = profileLabel({ name: $('studentNameInput').value, id: $('studentIdInput').value });
-      saveAndCalculate();
-    }
-
-    /* ---------- Formatting helpers ---------- */
-    function getFormattedBatchString() {
-      const batchVal = $('batchInput').value.trim();
-      const startYear = parseInt(batchVal, 10);
-      if (!isNaN(startYear) && startYear > 1900 && startYear < 2100) return `${startYear}–${startYear + 4}`;
-      return batchVal;
-    }
-
-    function toRoman(input) {
-      if (typeof input === 'number') input = String(input);
-      if (!input) return '';
-      input = input.trim().toUpperCase();
-      if (/^[IVXLCDM]+$/.test(input)) return input;
-      let num = parseInt(input.replace(/\D/g, ''), 10);
-      if (isNaN(num) || num <= 0) return input;
-      const lookup = { M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90, L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1 };
-      let roman = '';
-      for (const k in lookup) while (num >= lookup[k]) { roman += k; num -= lookup[k]; }
-      return roman;
-    }
-
-    function formatSemesterTitle(inputTitle) {
-      if (!inputTitle) return '';
-      const match = inputTitle.match(/(?:sem(?:ester)?\.?\s*)?([0-9]+|[IVXLCDM]+)/i);
-      if (match && match[1]) return `Semester ${toRoman(match[1])}`;
-      return inputTitle;
-    }
-
-    function creditsOf(split) {
-      const s = String(split || '').trim();
-      if (!s) return 0;
-      return s.split('+').reduce((sum, p) => sum + (parseFloat(p) || 0), 0);
-    }
-
-    /* ---------- Settings: pass mark & theme ---------- */
-    function setPassMark(val, fromInput = false) {
-      const num = parseFloat(val);
-      if (isNaN(num) || num < 0 || num > 100) return;
-      passMarkThreshold = num;
-      if (!fromInput) $('customPassInput').value = num;
-      saveAndCalculate();
-    }
-
-    function applyPresetTheme(presetKey) {
-      if (presetKey === 'custom') { applyCustomColor($('customColorPicker').value); return; }
-      const theme = themePresets[presetKey];
-      if (theme) {
-        $('customColorPicker').value = theme.primary;
-        setCSSVariables(theme.primary, theme.hover, theme.light, theme.border, theme.text);
-      }
-      saveAndCalculate();
-    }
-
-    function applyCustomColor(hexColor) {
-      $('presetThemeSelect').value = 'custom';
-      setCSSVariables(hexColor, adjustHexColor(hexColor, -20), adjustHexColor(hexColor, 92), adjustHexColor(hexColor, 70), hexColor);
-      saveAndCalculate();
-    }
-
-    function setCSSVariables(primary, hover, light, border, text) {
-      const root = document.documentElement;
-      root.style.setProperty('--primary-color', primary);
-      root.style.setProperty('--primary-hover', hover);
-      root.style.setProperty('--primary-light', light);
-      root.style.setProperty('--primary-border', border);
-      root.style.setProperty('--primary-text', text);
-    }
-
-    function adjustHexColor(hex, percent) {
-      const num = parseInt(hex.replace('#', ''), 16), amt = Math.round(2.55 * percent);
-      const clamp = (v) => Math.max(0, Math.min(255, v));
-      const R = clamp((num >> 16) + amt), G = clamp(((num >> 8) & 0xFF) + amt), B = clamp((num & 0xFF) + amt);
-      return '#' + ((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1);
-    }
-
-    /* ---------- Semesters & courses ---------- */
-    function addNewSemesterBlock(title = '') {
-      semesterCounter++;
-      const semId = `sem-block-${semesterCounter}`;
-      // A new card is numbered after the highest semester already on the sheet (not by how many were ever created).
-      const highest = Math.max(0, ...[...document.querySelectorAll('.sem-title-input')].map(i => {
-        const m = (i.value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1];
-        return m ? (/^\d+$/.test(m) ? parseInt(m, 10) : romanToInt(m.toUpperCase())) : 0;
-      }));
-      const formattedTitle = title ? formatSemesterTitle(title) : `Semester ${toRoman(highest + 1)}`;
-
-      const div = document.createElement('div');
-      div.className = 'bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden semester-card mb-6';
-      div.id = semId;
-
-      div.innerHTML = `
-        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <i data-lucide="book-open" class="w-5 h-5 theme-text"></i>
-            <input type="text" aria-label="Semester title" onchange="formatAndSave(this)" oninput="saveAndCalculate()" class="sem-title-input text-base font-bold text-slate-800 bg-transparent outline-none border-b border-dashed border-slate-300 px-1 py-0.5">
-          </div>
-          <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-            <div class="text-xs font-semibold theme-text bg-white px-3 py-1 rounded-lg border border-slate-200">
-              GPA: <span class="sem-gpa-badge text-sm font-bold">0.00</span>
-            </div>
-            <div class="flex items-center gap-1 no-print">
-              <button onclick="loadCatalogCourses('${semId}')" class="px-2.5 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-100 transition flex items-center gap-1" title="Fill this semester from the TNAU syllabus for your programme and batch">
-                <i data-lucide="list-plus" class="w-3.5 h-3.5"></i> Load Courses
-              </button>
-              <button onclick="addCourseRowToSem('${semId}'); saveAndCalculate();" class="px-2.5 py-1 theme-card-light theme-text border rounded-lg text-xs font-semibold hover:opacity-80 transition flex items-center gap-1">
-                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Course
-              </button>
-              <button onclick="removeSemesterBlock('${semId}')" aria-label="Remove semester" class="p-1 text-slate-400 hover:text-red-500 rounded-lg transition" title="Remove Semester">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm">
-            <thead class="bg-slate-50/50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
-              <tr>
-                <th class="px-3 py-2.5 font-semibold w-8 text-center align-middle whitespace-normal">#</th>
-                <th class="px-3 py-2.5 font-semibold w-28 text-center align-middle whitespace-normal">Course Code</th>
-                <th class="px-3 py-2.5 font-semibold min-w-[200px] text-center align-middle whitespace-normal">Course Title</th>
-                <th class="px-3 py-2.5 font-semibold w-24 text-center align-middle whitespace-normal">Credit Hours</th>
-                <th class="px-3 py-2.5 font-semibold w-24 text-center align-middle whitespace-normal">Marks</th>
-                <th class="px-3 py-2.5 font-semibold w-24 text-center align-middle whitespace-normal">Grade Point</th>
-                <th class="px-3 py-2.5 font-semibold w-24 text-center align-middle whitespace-normal">Credit Point</th>
-                <th class="px-3 py-2.5 font-semibold w-20 text-center align-middle whitespace-normal">Status</th>
-                <th class="px-3 py-2.5 font-semibold w-10 text-center align-middle whitespace-normal no-print"></th>
-              </tr>
-            </thead>
-            <tbody class="courseTableBody divide-y divide-slate-100"></tbody>
-          </table>
-        </div>
-      `;
-      div.querySelector('.sem-title-input').value = formattedTitle;   // set via DOM: no HTML injection
-      $('semestersContainer').appendChild(div);
-      icons();
-      return semId;
-    }
-
-    function formatAndSave(input) { input.value = formatSemesterTitle(input.value); sortSemesterCards(); saveAndCalculate(); }
-
-    function romanToInt(r) {
-      const v = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
-      let total = 0;
-      for (let i = 0; i < r.length; i++) { const a = v[r[i]], b = v[r[i + 1]] || 0; total += a < b ? -a : a; }
-      return total;
-    }
-
-    // Keep semester cards in Semester I, II, III... order; anything without a number stays after them.
-    function sortSemesterCards() {
-      const container = $('semestersContainer');
-      const cards = [...container.children];
-      const rank = (card) => {
-        const m = (card.querySelector('.sem-title-input').value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1];
-        if (!m) return 999;
-        const n = /^\d+$/.test(m) ? parseInt(m, 10) : romanToInt(m.toUpperCase());
-        return n || 999;
-      };
-      const sorted = cards.map((c, i) => ({ c, i, r: rank(c) })).sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.c);
-      if (sorted.some((c, i) => c !== cards[i])) sorted.forEach(c => container.appendChild(c));
-    }
-
-    function removeSemesterBlock(semId) {
-      const el = $(semId);
-      if (!el) return;
-      const hasData = [...el.querySelectorAll('.course-code, .course-title, .course-marks, .course-gp-input')].some(i => i.value);
-      if (hasData && !confirm('Remove this semester and all its courses?')) return;
-      el.remove();
-      saveAndCalculate();
-    }
-
-    function addCourseRowToSem(semId, data = {}) {
-      const semBlock = $(semId);
-      if (!semBlock) return null;
-      const tbody = semBlock.querySelector('.courseTableBody');
-      const tr = document.createElement('tr');
-      tr.className = 'hover:bg-slate-50/85 transition-colors empty-course-row';
-
-      tr.innerHTML = `
-        <td class="px-3 py-2 text-slate-400 font-medium text-xs row-number text-center"></td>
-        <td class="px-3 py-2"><input type="text" aria-label="Course code" placeholder="Code" oninput="saveAndCalculate()" class="course-code w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none uppercase font-semibold text-center"></td>
-        <td class="px-3 py-2"><input type="text" aria-label="Course title" placeholder="Title" oninput="saveAndCalculate()" class="course-title w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-left"></td>
-        <td class="px-3 py-2"><input type="text" aria-label="Credit hours" placeholder="e.g. 1+1" oninput="saveAndCalculate()" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
-        <td class="px-3 py-2"><input type="number" aria-label="Marks" step="0.1" min="0" max="100" placeholder="0 - 100" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
-        <td class="px-3 py-2"><input type="number" aria-label="Grade point" step="0.01" min="0" max="10" placeholder="0 - 10" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
-        <td class="px-3 py-2 font-semibold theme-text text-xs course-cp text-center">0.00</td>
-        <td class="px-3 py-2 text-center course-status"><span class="text-[11px] font-medium text-slate-400">-</span></td>
-        <td class="px-3 py-2 text-center no-print"><button onclick="removeCourseRow(this)" aria-label="Remove course" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
-      `;
-
-      // Values are assigned through the DOM so quotes or tags in titles can never break the markup.
-      tr.querySelector('.course-code').value = data.code || '';
-      tr.querySelector('.course-title').value = data.title || '';
-      tr.querySelector('.course-split').value = data.split || '';
-      tr.querySelector('.course-marks').value = data.marks ?? '';
-      tr.querySelector('.course-gp-input').value = data.gp ?? '';
-      if (data.auto) { tr.dataset.auto = '1'; tr.dataset.autoKey = data.autoKey || ''; }   // row came from the syllabus catalogue
-      if (tr.querySelector('.course-marks').value !== '' && tr.querySelector('.course-gp-input').value === '') deriveScores(tr, 'marks');
-      else if (tr.querySelector('.course-gp-input').value !== '' && tr.querySelector('.course-marks').value === '') deriveScores(tr, 'gp');
-
-      tbody.appendChild(tr);
-      updateRowNumbers(tbody);
-      icons();
-      return tr;
-    }
-
-    function removeCourseRow(btn) {
-      const tr = btn.closest('tr'), tbody = tr.parentNode;
-      tr.remove();
-      updateRowNumbers(tbody);
-      saveAndCalculate();
-    }
-
-    function updateRowNumbers(tbody) { tbody.querySelectorAll('tr').forEach((row, i) => row.querySelector('.row-number').innerText = i + 1); }
-
-    // Marks and grade point mirror each other (GP = marks / 10).
-    function deriveScores(row, source) {
-      const marksInput = row.querySelector('.course-marks'), gpInput = row.querySelector('.course-gp-input');
-      if (source === 'marks') {
-        const v = parseFloat(marksInput.value);
-        gpInput.value = (!isNaN(v) && v >= 0 && v <= 100) ? (v / 10).toFixed(2) : '';
-      } else {
-        const v = parseFloat(gpInput.value);
-        marksInput.value = (!isNaN(v) && v >= 0 && v <= 10) ? (v * 10).toFixed(1) : '';
-      }
-    }
-
-    function syncScoreInputs(row, source) { deriveScores(row, source); saveAndCalculate(); }
-
-    /* ---------- Syllabus auto-fill ---------- */
-    function findCurriculum(batchYear) {
-      return CURRICULA.find(c => batchYear >= c.from && batchYear <= c.to) || null;
-    }
-
-    function loadCatalogCourses(semId) {
-      const card = $(semId);
-      if (!card) return;
-      const degree = $('degreeInput').value;
-      const batchYear = parseInt($('batchInput').value, 10);
-      if (!degree || isNaN(batchYear)) { toast('Select the Degree Programme and enter the Batch Start Year first.', 'error'); return; }
-
-      const set = findCurriculum(batchYear);
-      if (!set) { toast(`No syllabus is set up for batch ${batchYear}.`, 'error'); return; }
-      const programme = set.programmes[degree];
-      if (!programme) { toast(`${degree}: the ${set.id} course list hasn't been added yet. You can still add courses manually.`, 'error'); return; }
-
-      const roman = toRoman((card.querySelector('.sem-title-input').value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1] || '');
-      const courses = programme[roman];
-      if (!courses) { toast(`No courses listed for ${card.querySelector('.sem-title-input').value || 'this semester'}. Name it like "Semester IV".`, 'error'); return; }
-
-      const keyOf = (code, title) => `${code.trim().toUpperCase()}|${title.trim().toLowerCase()}`;
-      const existing = new Set([...card.querySelectorAll('.courseTableBody tr')].map(r => keyOf(r.querySelector('.course-code').value, r.querySelector('.course-title').value)));
-      // Reuse blank rows (e.g. from "Add Course") instead of leaving gaps above the loaded ones.
-      card.querySelectorAll('.courseTableBody tr').forEach(r => {
-        if (![...r.querySelectorAll('input')].some(i => i.value)) r.remove();
-      });
-
-      let added = 0;
-      isLoading = true;
+      if (!cloudReady) { setSyncStatus(needsReconnect ? 'reauth' : 'offline'); return; }   // never write before the real copy has loaded
+      if (flushing) { flushAgain = true; return; }
+      flushing = true;
+      const sentDirty = new Set(dirtyProfiles), sentDeleted = new Set(deletedProfiles);
       try {
-        for (const [code, title, split] of courses) {
-          if (existing.has(keyOf(code, title))) continue;
-          addCourseRowToSem(semId, { code, title, split, auto: true, autoKey: `${degree}|${set.id}` });
-          added++;
-        }
-      } finally { isLoading = false; }
-      saveAndCalculate();
-      toast(added ? `Loaded ${added} course${added > 1 ? 's' : ''} (${set.id}). Enter your marks.` : 'All courses for this semester are already there.', added ? 'success' : 'info');
-    }
-
-    /* ---------- Automatic syllabus fill ----------
-       Runs whenever the Degree Programme or Batch Start Year changes.
-       - Fills every semester that has nothing typed in yet (and creates the missing semester cards on a fresh sheet).
-       - Never touches rows where you've entered marks/grade points, or semesters you've typed your own courses into.
-       - If you switch programme/batch, un-marked rows from the previous syllabus are swapped for the new ones. */
-    function onProgrammeOrBatchChange() { applyCatalogAuto(); saveAndCalculate(); }
-
-    function rowHasScores(tr) { return tr.querySelector('.course-marks').value !== '' || tr.querySelector('.course-gp-input').value !== ''; }
-    function rowHasAnyInput(tr) { return [...tr.querySelectorAll('input')].some(i => i.value !== ''); }
-    function cardIsPristine(card) {
-      return [...card.querySelectorAll('.courseTableBody tr')].every(tr => tr.dataset.auto === '1' ? !rowHasScores(tr) : !rowHasAnyInput(tr));
-    }
-    function cardRoman(card) {
-      return toRoman((card.querySelector('.sem-title-input').value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1] || '');
-    }
-
-    function applyCatalogAuto() {
-      if (isLoading) return;
-      const degree = $('degreeInput').value;
-      const raw = $('batchInput').value.trim();
-      const year = parseInt(raw, 10);
-      const yearReady = /^\d{4}$/.test(raw) && year >= 2000;   // wait until a full year is typed
-
-      const set = (degree && yearReady) ? findCurriculum(year) : null;
-      const programme = set ? set.programmes[degree] : null;
-      const key = programme ? `${degree}|${set.id}` : '';
-      const limit = parseInt($('semsDoneInput').value, 10) || 99;   // how many semesters the student has completed
-      const rankOf = (roman) => programme ? Object.keys(programme).indexOf(roman) : -1;
-
-      isLoading = true;
-      let filledCards = 0, filledRows = 0;
-      try {
-        // 1) Drop rows from a previous programme/batch selection unless marks were entered on them.
-        document.querySelectorAll('.semester-card').forEach(card => {
-          const tbody = card.querySelector('.courseTableBody');
-          delete card.dataset.cleared;
-          tbody.querySelectorAll('tr[data-auto="1"]').forEach(tr => { if (tr.dataset.autoKey !== key && !rowHasScores(tr)) { tr.remove(); card.dataset.cleared = '1'; } });
-          updateRowNumbers(tbody);
-        });
-
-        if (!programme) {
-          if (degree && yearReady) {
-            isLoading = false;
-            toast(set ? `${degree}: the ${set.id} course list isn't added yet. Add courses manually.` : `No syllabus is set up for batch ${year}.`, 'error');
-          }
-          return;
-        }
-
-        // 2a) Remove untouched semesters beyond the number completed (keep at least one card).
-        document.querySelectorAll('.semester-card').forEach(card => {
-          const r = rankOf(cardRoman(card));
-          const outOfScope = r >= limit || (r === -1 && card.dataset.cleared === '1');   // beyond completed semesters, or not in this syllabus
-          if (outOfScope && cardIsPristine(card) && document.querySelectorAll('.semester-card').length > 1) card.remove();
-        });
-
-        // 2b) On a fresh sheet, make sure there is a card for each completed semester in the syllabus.
-        {
-          const have = new Set([...document.querySelectorAll('.semester-card')].map(cardRoman));
-          Object.keys(programme).slice(0, limit).forEach(roman => { if (!have.has(roman)) addNewSemesterBlock(`Semester ${roman}`); });
-          // keep the cards in syllabus order
-          const container = $('semestersContainer');
-          const rank = r => { const i = Object.keys(programme).indexOf(r); return i < 0 ? 99 : i; };
-          [...container.children].sort((a, b) => rank(cardRoman(a)) - rank(cardRoman(b))).forEach(c => container.appendChild(c));
-        }
-
-        // 3) Fill each semester that is still untouched.
-        document.querySelectorAll('.semester-card').forEach(card => {
-          const courses = programme[cardRoman(card)];
-          if (!courses || rankOf(cardRoman(card)) >= limit) return;
-          if (!card.dataset.cleared && [...card.querySelectorAll('tr[data-auto="1"]')].some(tr => tr.dataset.autoKey === key)) return;  // already filled for this selection
-          // Fill only if the card holds nothing but syllabus rows or blanks (never mix into hand-typed courses).
-          if (![...card.querySelectorAll('.courseTableBody tr')].every(tr => tr.dataset.auto === '1' || !rowHasAnyInput(tr))) return;
-          card.querySelectorAll('.courseTableBody tr').forEach(tr => { if (!rowHasAnyInput(tr)) tr.remove(); });
-          const present = new Set([...card.querySelectorAll('.courseTableBody tr')].map(tr => `${tr.querySelector('.course-code').value.trim().toUpperCase()}|${tr.querySelector('.course-title').value.trim().toLowerCase()}`));
-          let added = 0;
-          courses.forEach(([code, title, split]) => {
-            if (present.has(`${code.toUpperCase()}|${title.toLowerCase()}`)) return;   // e.g. a row you already entered marks on
-            addCourseRowToSem(card.id, { code, title, split, auto: true, autoKey: key });
-            added++;
-          });
-          if (added) { filledCards++; filledRows += added; }
-        });
-      } finally { isLoading = false; }
-
-      if (filledCards) toast(`Filled ${filledRows} courses across ${filledCards} semester${filledCards > 1 ? 's' : ''} (${set.id}). Enter your marks.`, 'success');
-    }
-
-    /* ---------- Save / load profile ---------- */
-    function collectActiveProfile() {
-      const p = cloudDataStore[activeProfileId] || (cloudDataStore[activeProfileId] = {});
-      dirtyProfiles.add(activeProfileId);
-      p.name = $('studentNameInput').value;
-      p.id = $('studentIdInput').value;
-      p.degree = $('degreeInput').value;
-      p.batch = $('batchInput').value;
-      p.semsDone = $('semsDoneInput').value;
-      p.passMark = passMarkThreshold;
-      p.theme = $('presetThemeSelect').value;
-      p.customColor = $('customColorPicker').value;
-      p.semesters = [...document.querySelectorAll('.semester-card')].map(card => ({
-        title: card.querySelector('.sem-title-input').value,
-        courses: [...card.querySelectorAll('.courseTableBody tr')].map(row => ({
-          code: row.querySelector('.course-code').value,
-          title: row.querySelector('.course-title').value,
-          split: row.querySelector('.course-split').value,
-          marks: row.querySelector('.course-marks').value,
-          gp: row.querySelector('.course-gp-input').value,
-          auto: row.dataset.auto === '1',
-          autoKey: row.dataset.autoKey || ''
-        }))
-      }));
-    }
-
-    function saveAndCalculate() {
-      calculateAll();
-      if (isLoading || !activeProfileId || !cloudDataStore[activeProfileId]) return;
-      collectActiveProfile();
-      scheduleSave();
-    }
-
-    function loadProfileData(profileId) {
-      isLoading = true;
-      try {
-        $('semestersContainer').innerHTML = '';
-        semesterCounter = 0;
-        const data = cloudDataStore[profileId] || { name: '', id: '', semesters: [] };
-
-        $('studentNameInput').value = data.name || '';
-        $('studentIdInput').value = data.id || '';
-        $('degreeInput').value = data.degree || '';
-        $('batchInput').value = data.batch || '';
-        $('semsDoneInput').value = data.semsDone || '';
-        setPassMark(data.passMark ?? 50);
-
-        if (data.theme) {
-          $('presetThemeSelect').value = data.theme;
-          if (data.theme === 'custom' && data.customColor) { $('customColorPicker').value = data.customColor; applyCustomColor(data.customColor); }
-          else applyPresetTheme(data.theme);
-        }
-
-        if (data.semesters && data.semesters.length) {
-          data.semesters.forEach(sem => {
-            const semId = addNewSemesterBlock(sem.title);
-            (sem.courses || []).forEach(c => addCourseRowToSem(semId, c));
-          });
-        } else addNewSemesterBlock('Semester I');
-        sortSemesterCards();
-      } finally { isLoading = false; }
-      calculateAll();
-    }
-
-    /* ---------- Calculation ---------- */
-    function calculateAll() {
-      const name = $('studentNameInput').value.trim();
-      const id = $('studentIdInput').value.trim();
-      const degree = $('degreeInput').value;
-      const batch = getFormattedBatchString();
-
-      $('summaryName').innerText = name || '-';
-      $('summaryId').innerText = id || '-';
-      $('summaryDegree').innerText = degree || '-';
-      $('summaryBatch').innerText = batch || '-';
-      $('summaryDate').innerText = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-
-      $('printRowName').style.display = name ? 'flex' : 'none';
-      $('printRowId').style.display = id ? 'flex' : 'none';
-      $('printRowDegree').style.display = degree ? 'flex' : 'none';
-      $('printRowBatch').style.display = batch ? 'flex' : 'none';
-
-      let totalCredits = 0, totalPoints = 0, arrears = 0;
-      const breakdownList = $('semesterBreakdownList');
-      breakdownList.innerHTML = '';
-
-      document.querySelectorAll('.semester-card').forEach((semCard) => {
-        const semTitle = semCard.querySelector('.sem-title-input').value.trim() || 'Semester';
-        let semCredits = 0, semPoints = 0;
-
-        semCard.querySelectorAll('.courseTableBody tr').forEach((row) => {
-          const split = row.querySelector('.course-split').value.trim();
-          const marksInput = row.querySelector('.course-marks'), gpInput = row.querySelector('.course-gp-input');
-          const marks = parseFloat(marksInput.value), gp = parseFloat(gpInput.value);
-          const credits = creditsOf(split);
-
-          marksInput.classList.toggle('input-invalid', !isNaN(marks) && (marks < 0 || marks > 100));
-          gpInput.classList.toggle('input-invalid', !isNaN(gp) && (gp < 0 || gp > 10));
-
-          const cpCell = row.querySelector('.course-cp'), statusCell = row.querySelector('.course-status');
-          const isFilled = row.querySelector('.course-code').value || row.querySelector('.course-title').value || split || !isNaN(marks) || !isNaN(gp);
-          row.classList.toggle('empty-course-row', !isFilled);
-
-          if (credits > 0 && !isNaN(gp) && gp >= 0 && gp <= 10) {
-            const cp = credits * gp;
-            const effectiveMarks = !isNaN(marks) ? marks : gp * 10;
-            cpCell.innerText = cp.toFixed(2);
-            if (effectiveMarks >= passMarkThreshold) {
-              statusCell.innerHTML = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>';
-            } else {
-              statusCell.innerHTML = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>';
-              arrears++;
-            }
-            semCredits += credits; semPoints += cp;
-          } else {
-            cpCell.innerText = '0.00';
-            statusCell.innerHTML = '<span class="text-[11px] text-slate-400">-</span>';
-          }
-        });
-
-        const semGPA = semCredits > 0 ? semPoints / semCredits : 0;
-        semCard.querySelector('.sem-gpa-badge').innerText = semGPA.toFixed(2);
-        totalCredits += semCredits; totalPoints += semPoints;
-
-        if (semCredits > 0) {
-          const colStyle = 'display:grid;grid-template-columns:minmax(0,1fr) 3.5rem 3.5rem;gap:0.5rem;align-items:center';
-          const cols = 'items-center';
-          if (!breakdownList.children.length) {
-            const head = document.createElement('div');
-            head.className = `${cols} text-[10px] uppercase tracking-wider text-slate-400 pb-1`;
-            head.style.cssText = colStyle;
-            head.innerHTML = '<span>Semester</span><span class="text-right">Credits</span><span class="text-right">GPA</span>';
-            breakdownList.appendChild(head);
-          }
-          const item = document.createElement('div');
-          item.className = `${cols} py-1 border-b border-slate-50 tabular-nums`;
-          item.style.cssText = colStyle;
-          const label = document.createElement('span');
-          label.className = 'font-medium text-slate-600 truncate';
-          label.textContent = semTitle;                       // textContent: titles are user input
-          const cr = document.createElement('span');
-          cr.className = 'text-right text-slate-500';
-          cr.textContent = String(semCredits);
-          const val = document.createElement('span');
-          val.className = 'text-right font-bold theme-text';
-          val.textContent = semGPA.toFixed(2);
-          item.append(label, cr, val);
-          breakdownList.appendChild(item);
-        }
-      });
-
-      const ogpa = totalCredits > 0 ? totalPoints / totalCredits : 0;
-      $('cumulativeOgpaDisplay').innerText = ogpa.toFixed(2);
-      $('percentageDisplay').innerText = `Overall Percentage: ${(ogpa * 10).toFixed(2)}%`;
-      $('totalCreditsDisplay').innerText = totalCredits.toFixed(1);
-      $('totalPointsDisplay').innerText = totalPoints.toFixed(2);
-      const arrEl = $('arrearsDisplay');
-      arrEl.innerText = arrears;
-      arrEl.className = 'font-semibold ' + (arrears ? 'text-red-600' : 'text-slate-800');
-
-      window.__totals = { totalCredits, totalPoints, ogpa };
-      updateTargetPlanner();
-    }
-
-    // GPA needed over the remaining credits to land on the target OGPA.
-    function updateTargetPlanner() {
-      const out = $('targetResult');
-      const { totalCredits = 0, totalPoints = 0 } = window.__totals || {};
-      const target = parseFloat($('targetOgpaInput').value);
-      const remaining = parseFloat($('remainingCreditsInput').value);
-      if (isNaN(target) || isNaN(remaining) || remaining <= 0) {
-        out.className = 'text-xs text-slate-500';
-        out.textContent = 'Enter a target and the credits you still have to take.';
-        return;
-      }
-      const needed = (target * (totalCredits + remaining) - totalPoints) / remaining;
-      if (needed > 10) {
-        out.className = 'text-xs text-red-600 font-medium';
-        out.textContent = `Not reachable: you would need ${needed.toFixed(2)} (above the 10.00 maximum). The best possible OGPA is ${((totalPoints + 10 * remaining) / (totalCredits + remaining)).toFixed(2)}.`;
-      } else if (needed <= 0) {
-        out.className = 'text-xs theme-text font-medium';
-        out.textContent = 'Target already secured, whatever you score in the remaining credits.';
-      } else {
-        out.className = 'text-xs theme-text font-medium';
-        out.textContent = `You need an average GPA of ${needed.toFixed(2)} (≈ ${(needed * 10).toFixed(1)}%) over the next ${remaining} credits.`;
-      }
-    }
-
-    /* ---------- Output: print, copy, export ---------- */
-    function printAppSummaryView() { window.print(); }
-
-    function copySummary() {
-      const lines = [
-        '--- TNAU Multi-Semester Academic Summary ---',
-        `Student: ${$('summaryName').innerText}`,
-        `ID: ${$('summaryId').innerText}`,
-        `Programme: ${$('degreeInput').value || '-'}`,
-        `Batch: ${getFormattedBatchString() || '-'}`,
-        ''
-      ];
-      document.querySelectorAll('.semester-card').forEach(card => {
-        const gpa = card.querySelector('.sem-gpa-badge').innerText;
-        if (parseFloat(gpa) > 0) lines.push(`${card.querySelector('.sem-title-input').value}: GPA ${gpa}`);
-      });
-      lines.push('', `Cumulative OGPA: ${$('cumulativeOgpaDisplay').innerText}`, $('percentageDisplay').innerText);
-      navigator.clipboard.writeText(lines.join('\n'))
-        .then(() => toast('Summary copied to clipboard', 'success'))
-        .catch(() => toast('Could not copy. Your browser blocked clipboard access.', 'error'));
-    }
-
-    function downloadFile(filename, content, mime) {
-      const url = URL.createObjectURL(new Blob([content], { type: mime }));
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
-
-    function safeFilePart() {
-      return (($('studentIdInput').value || $('studentNameInput').value || 'profile').trim().replace(/[^\w\-]+/g, '_')) || 'profile';
-    }
-
-    function exportCSV() {
-      calculateAll();
-      // Quote fields, and neutralise cells that spreadsheets would treat as formulas.
-      const cell = (v) => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
-      const rows = [['Semester', 'Course Code', 'Course Title', 'Credit Hours', 'Marks', 'Grade Point', 'Credit Point', 'Status']];
-      document.querySelectorAll('.semester-card').forEach(card => {
-        const sem = card.querySelector('.sem-title-input').value;
-        card.querySelectorAll('.courseTableBody tr:not(.empty-course-row)').forEach(r => {
-          rows.push([sem, r.querySelector('.course-code').value, r.querySelector('.course-title').value, r.querySelector('.course-split').value,
-            r.querySelector('.course-marks').value, r.querySelector('.course-gp-input').value, r.querySelector('.course-cp').innerText, r.querySelector('.course-status').innerText.trim()]);
-        });
-      });
-      rows.push([], ['Cumulative OGPA', $('cumulativeOgpaDisplay').innerText]);
-      downloadFile(`TNAU_OGPA_${safeFilePart()}.csv`, '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
-      toast('CSV downloaded', 'success');
-    }
-
-    function exportProfileJSON() {
-      if (!isLoading) collectActiveProfile();
-      downloadFile(`TNAU_backup_${safeFilePart()}.json`, JSON.stringify({ app: 'tnau-ogpa', version: 1, profile: cloudDataStore[activeProfileId] }, null, 2), 'application/json');
-      toast('Backup downloaded', 'success');
-    }
-
-    function importProfileJSON(input) {
-      const file = input.files && input.files[0];
-      input.value = '';
-      if (!file) return;
-      if (file.size > 2 * 1024 * 1024) { toast('That file is too large to be a backup.', 'error'); return; }
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const parsed = JSON.parse(reader.result);
-          const p = parsed && parsed.profile;
-          if (!p || !Array.isArray(p.semesters)) throw new Error('bad shape');
-          const str = (v) => (v == null ? '' : String(v));
-          const clean = {
-            name: str(p.name), id: str(p.id), degree: str(p.degree), batch: str(p.batch),
-            passMark: Number.isFinite(+p.passMark) ? +p.passMark : 50,
-            theme: themePresets[p.theme] || p.theme === 'custom' ? p.theme : 'emerald',
-            customColor: /^#[0-9a-fA-F]{6}$/.test(str(p.customColor)) ? p.customColor : '#065f46',
-            semesters: p.semesters.map(s => ({
-              title: str(s.title),
-              courses: (Array.isArray(s.courses) ? s.courses : []).map(c => ({ code: str(c.code), title: str(c.title), split: str(c.split), marks: str(c.marks), gp: str(c.gp) }))
-            }))
-          };
-          const pid = 'prof_' + Date.now();
-          cloudDataStore[pid] = clean;
-          dirtyProfiles.add(pid);
-          activeProfileId = pid;
-          initProfilesList();
-          scheduleSave();
-          toast('Backup restored as a new profile', 'success');
-        } catch (e) { toast('That file is not a valid backup.', 'error'); }
-      };
-      reader.readAsText(file);
-    }
-  </script>
-</body>
-</html>
+        // read the latest copy, merge it with ours, write the result back
+        let remote = { profiles: {}, deleted: {} };
+        let id = driveFileId;
+        if (id) {
+          try { remote = normalizeRemote(await driveRead(id)); }
+          catch (e) { if (e && e.code === 'http-404') id
