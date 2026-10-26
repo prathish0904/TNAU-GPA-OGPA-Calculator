@@ -57,7 +57,29 @@
 
     .print-only { display: none; }
 
+    /* ---------- Animations (all switched off for people who prefer reduced motion, and for print) ---------- */
+    @keyframes fadeUp   { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes fadeDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+    @keyframes slideIn  { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+    @keyframes popIn    { 0% { opacity: 0; transform: scale(.6); } 70% { transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } }
+    @keyframes fadeOut  { to { opacity: 0; transform: translateX(14px); } }
+    @keyframes scoreGlow { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.55); } 100% { box-shadow: 0 0 0 22px rgba(255,255,255,0); } }
+    .anim-card { animation: fadeUp .45s cubic-bezier(.2,.8,.2,1) both; }
+    .anim-down { animation: fadeDown .5s ease both; }
+    .anim-row  { animation: slideIn .3s ease both; }
+    .anim-pop  { animation: popIn .35s ease both; }
+    .row-out   { animation: fadeOut .18s ease forwards; }
+    .score-pulse { animation: scoreGlow .9s ease-out; }
+    .theme-header, .theme-btn-primary, .theme-card-light { transition: background-color .4s ease, border-color .4s ease, color .4s ease, transform .15s ease, box-shadow .2s ease; }
+    button, select { transition: transform .15s ease, box-shadow .2s ease, background-color .2s ease, opacity .2s ease; }
+    button:not(:disabled):hover { transform: translateY(-1px); }
+    button:not(:disabled):active { transform: scale(.96); }
+    .semester-card { transition: box-shadow .3s ease, transform .3s ease; }
+    .semester-card:hover { box-shadow: 0 10px 28px rgba(15,23,42,.09); }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
     @media print {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
       body {
         background: white !important;
         color: black !important;
@@ -103,7 +125,7 @@
   <div id="toastHost" class="fixed bottom-4 right-4 z-[60] space-y-2 no-print" aria-live="polite"></div>
 
   <!-- Header -->
-  <header id="mainHeader" class="theme-header text-white shadow-lg no-print transition-colors duration-300">
+  <header id="mainHeader" class="theme-header text-white shadow-lg no-print transition-colors duration-300 anim-down">
     <div class="max-w-6xl mx-auto px-4 py-6">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -146,7 +168,7 @@
   </header>
 
   <!-- Account & Searchable Profile Switcher Bar -->
-  <section class="max-w-6xl mx-auto mt-6 px-4 no-print w-full">
+  <section class="max-w-6xl mx-auto mt-6 px-4 no-print w-full anim-card" style="animation-delay:.08s">
     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div class="flex items-center gap-3">
         <div class="p-2.5 theme-card-light theme-text rounded-xl">
@@ -252,7 +274,7 @@
     </div>
 
     <div class="lg:col-span-4 space-y-6">
-      <div id="resultsCard" class="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-6 lg:sticky lg:top-6">
+      <div id="resultsCard" class="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-6 lg:sticky lg:top-6 anim-card" style="animation-delay:.2s">
         <div class="flex items-center justify-between border-b border-slate-100 pb-4">
           <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
             <i data-lucide="award" class="w-5 h-5 theme-text"></i> Cumulative OGPA
@@ -394,6 +416,37 @@
     /* The course lists live in syllabus.js (loaded before this script). Edit that file to change the syllabus. */
 
     /* ---------- Helpers ---------- */
+    /* ---------- Animation helpers ---------- */
+    const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    // Play an entrance animation once, then remove the class so moving the element later (re-sorting) does not replay it.
+    function animateIn(el, cls, delayMs = 0) {
+      if (!el || reducedMotion()) return;
+      el.style.animationDelay = delayMs ? `${delayMs}ms` : '';
+      el.classList.add(cls);
+      el.addEventListener('animationend', () => { el.classList.remove(cls); el.style.animationDelay = ''; }, { once: true });
+    }
+
+    // Count a number up or down to its new value; the final text is also kept in data-final (copy, CSV and print use it).
+    function animateValue(el, to, format) {
+      const finalText = format(to);
+      el.dataset.final = finalText;
+      const from = typeof el._val === 'number' ? el._val : to;
+      cancelAnimationFrame(el._raf);
+      if (reducedMotion() || Math.abs(to - from) < 0.005) { el.innerText = finalText; el._val = to; return false; }
+      const start = performance.now(), dur = 650;
+      const tick = (now) => {
+        const t = Math.min(1, (now - start) / dur), eased = 1 - Math.pow(1 - t, 3);
+        el.innerText = format(from + (to - from) * eased);
+        if (t < 1) el._raf = requestAnimationFrame(tick); else { el.innerText = finalText; el._val = to; }
+      };
+      el._val = to;
+      el._raf = requestAnimationFrame(tick);
+      return true;
+    }
+    const shownText = (id) => $(id).dataset.final || $(id).innerText;
+    window.addEventListener('beforeprint', () => document.querySelectorAll('[data-final]').forEach(el => { el.innerText = el.dataset.final; }));
+
     function defaultStore() { return { [DEFAULT_PROFILE_ID]: { name: 'Default Student', id: '', semesters: [] } }; }
     function icons() { try { if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons(); } catch (e) { console.warn('Icons could not be drawn:', e); } }
     function $(id) { return document.getElementById(id); }
@@ -420,7 +473,7 @@
       };
       const [text, cls] = map[state] || map.ready;
       el.textContent = detail ? `${text} (${detail})` : text;
-      el.className = `font-semibold ${cls}`;
+      el.className = `font-semibold ${cls}${state === 'saving' ? ' animate-pulse' : ''}`;
     }
 
     function profileLabel(info) {
@@ -972,6 +1025,7 @@
       const div = document.createElement('div');
       div.className = 'bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden semester-card mb-6';
       div.id = semId;
+      animateIn(div, 'anim-card', Math.min(semesterCounter - 1, 8) * 70);
 
       div.innerHTML = `
         <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -1084,6 +1138,7 @@
       else if (tr.querySelector('.course-gp-input').value !== '' && tr.querySelector('.course-marks').value === '') deriveScores(tr, 'gp');
 
       tbody.appendChild(tr);
+      animateIn(tr, 'anim-row', Math.min(tbody.children.length - 1, 14) * 28);
       updateRowNumbers(tbody);
       icons();
       return tr;
@@ -1091,9 +1146,10 @@
 
     function removeCourseRow(btn) {
       const tr = btn.closest('tr'), tbody = tr.parentNode;
-      tr.remove();
-      updateRowNumbers(tbody);
-      saveAndCalculate();
+      const finish = () => { tr.remove(); updateRowNumbers(tbody); saveAndCalculate(); };
+      if (reducedMotion()) { finish(); return; }
+      tr.classList.add('row-out');
+      setTimeout(finish, 180);
     }
 
     function updateRowNumbers(tbody) { tbody.querySelectorAll('tr').forEach((row, i) => row.querySelector('.row-number').innerText = i + 1); }
@@ -1307,6 +1363,14 @@
     }
 
     /* ---------- Calculation ---------- */
+    function setStatusBadge(cell, key, html) {
+      if (cell.dataset.s === key) return;
+      const first = cell.dataset.s === undefined;
+      cell.dataset.s = key;
+      cell.innerHTML = html;
+      if (!first && key !== 'none' && cell.firstElementChild) animateIn(cell.firstElementChild, 'anim-pop');
+    }
+
     function calculateAll() {
       const name = $('studentNameInput').value.trim();
       const id = $('studentIdInput').value.trim();
@@ -1350,20 +1414,21 @@
             const effectiveMarks = !isNaN(marks) ? marks : gp * 10;
             cpCell.innerText = cp.toFixed(2);
             if (effectiveMarks >= passMarkThreshold) {
-              statusCell.innerHTML = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>';
+              setStatusBadge(statusCell, 'pass', '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">PASS</span>');
             } else {
-              statusCell.innerHTML = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>';
+              setStatusBadge(statusCell, 'fail', '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">RA (FAIL)</span>');
               arrears++;
             }
             semCredits += credits; semPoints += cp;
           } else {
             cpCell.innerText = '0.00';
-            statusCell.innerHTML = '<span class="text-[11px] text-slate-400">-</span>';
+            setStatusBadge(statusCell, 'none', '<span class="text-[11px] text-slate-400">-</span>');
           }
         });
 
         const semGPA = semCredits > 0 ? semPoints / semCredits : 0;
-        semCard.querySelector('.sem-gpa-badge').innerText = semGPA.toFixed(2);
+        const gpaBadge = semCard.querySelector('.sem-gpa-badge');
+        if (gpaBadge.innerText !== semGPA.toFixed(2)) { gpaBadge.innerText = semGPA.toFixed(2); if (!isLoading) animateIn(gpaBadge.parentElement, 'anim-pop'); }
         totalCredits += semCredits; totalPoints += semPoints;
 
         if (semCredits > 0) {
@@ -1394,8 +1459,9 @@
       });
 
       const ogpa = totalCredits > 0 ? totalPoints / totalCredits : 0;
-      $('cumulativeOgpaDisplay').innerText = ogpa.toFixed(2);
-      $('percentageDisplay').innerText = `Overall Percentage: ${(ogpa * 10).toFixed(2)}%`;
+      const ogpaMoved = animateValue($('cumulativeOgpaDisplay'), ogpa, v => v.toFixed(2));
+      animateValue($('percentageDisplay'), ogpa * 10, v => `Overall Percentage: ${v.toFixed(2)}%`);
+      if (ogpaMoved && !isLoading) { const box = $('scoreBox'); box.classList.remove('score-pulse'); void box.offsetWidth; box.classList.add('score-pulse'); }
       $('totalCreditsDisplay').innerText = totalCredits.toFixed(1);
       $('totalPointsDisplay').innerText = totalPoints.toFixed(2);
       const arrEl = $('arrearsDisplay');
@@ -1446,7 +1512,7 @@
         const gpa = card.querySelector('.sem-gpa-badge').innerText;
         if (parseFloat(gpa) > 0) lines.push(`${card.querySelector('.sem-title-input').value}: GPA ${gpa}`);
       });
-      lines.push('', `Cumulative OGPA: ${$('cumulativeOgpaDisplay').innerText}`, $('percentageDisplay').innerText);
+      lines.push('', `Cumulative OGPA: ${shownText('cumulativeOgpaDisplay')}`, shownText('percentageDisplay'));
       navigator.clipboard.writeText(lines.join('\n'))
         .then(() => toast('Summary copied to clipboard', 'success'))
         .catch(() => toast('Could not copy. Your browser blocked clipboard access.', 'error'));
@@ -1476,7 +1542,7 @@
             r.querySelector('.course-marks').value, r.querySelector('.course-gp-input').value, r.querySelector('.course-cp').innerText, r.querySelector('.course-status').innerText.trim()]);
         });
       });
-      rows.push([], ['Cumulative OGPA', $('cumulativeOgpaDisplay').innerText]);
+      rows.push([], ['Cumulative OGPA', shownText('cumulativeOgpaDisplay')]);
       downloadFile(`TNAU_OGPA_${safeFilePart()}.csv`, '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
       toast('CSV downloaded', 'success');
     }
