@@ -8,11 +8,27 @@
   <meta name="description" content="Calculate single-semester, multi-semester, and cumulative OGPA for TNAU courses on a 10-point scale. Free, fast, and print-ready.">
   <meta name="keywords" content="TNAU GPA calculator, GPA calculator for agri, TNAU OGPA calculator, Tamil Nadu Agricultural University, TNAU grade calculator">
   <title>TNAU Multi-Semester GPA & OGPA Engine</title>
+  <script>
+    /* If the main script cannot start, show why instead of a half-empty page. */
+    window.__tnauErrors = [];
+    window.addEventListener('error', function (e) {
+      window.__tnauErrors.push((e.message || 'error') + (e.filename ? ' [' + e.filename.split('/').pop() + ':' + e.lineno + ']' : ''));
+    });
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        if (window.__tnauBooted) return;
+        var b = document.createElement('div');
+        b.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#b91c1c;color:#fff;padding:10px 14px;font:13px/1.45 sans-serif';
+        b.textContent = 'The calculator script did not start. ' + (window.__tnauErrors.join(' | ') || 'No error was reported. The file may be incomplete or blocked.') + ' Please send this message to the developer.';
+        document.body.appendChild(b);
+      }, 1500);
+    });
+  </script>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons CDN -->
+  <!-- Lucide Icons CDN (version pinned so a future release can't break the page) -->
   <script src="https://unpkg.com/lucide@0.469.0"></script>
-  <!-- Google Identity Services -->
+  <!-- Google Identity Services (sign in with Google) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -344,10 +360,11 @@
         <span>Designed & Developed by <strong>Prathish P</strong></span>
       </div>
       <p class="text-slate-600 font-medium">B.Tech (Energy and Environmental Engineering) • Batch 2024–2028</p>
-      <p class="text-slate-400 text-[11px]">Tamil Nadu Agricultural University (TNAU) Grading Engine</p>
+      <p class="text-slate-400 text-[11px]">Tamil Nadu Agricultural University (TNAU) Grading Engine • build 23 Oct 2026 (Google Drive)</p>
     </div>
   </footer>
 
+  <script src="syllabus.js"></script>
   <script>
     /* ---------- State ---------- */
     const GUEST_KEY = 'tnau_guest_store_v1';
@@ -358,12 +375,12 @@
     let passMarkThreshold = 50;
     let currentUser = null;
     let activeProfileId = DEFAULT_PROFILE_ID;
-    let isLoading = false;
+    let isLoading = false;      // true while the DOM is being rebuilt from stored data
     let saveTimer = null;
-    let cloudReady = false;
+    let cloudReady = false;      // true once the real cloud copy has been received; nothing is written before that
     const withTimeout = (promise, ms) => Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
-    const dirtyProfiles = new Set();
-    const deletedProfiles = new Set();
+    const dirtyProfiles = new Set();     // profiles changed locally and not yet written to the cloud
+    const deletedProfiles = new Set();   // profiles deleted locally and not yet removed from the cloud
     let cloudDataStore = defaultStore();
 
     const themePresets = {
@@ -373,197 +390,12 @@
       dark:    { primary: '#0f172a', hover: '#1e293b', light: '#f8fafc', border: '#cbd5e1', text: '#0f172a' }
     };
 
-    /* ---------- Syllabus catalogue parsed from 2024.xlsx & 2025.xlsx ---------- */
-    const CURRICULA = [
-      { id: "up to 2024", label: "Syllabus for batches up to 2024", from: 0, to: 2024, programmes: {
-        "B.Sc. (Hons.) Agriculture": {
-          "I": [
-            ["AEX 101", "Rural Sociology and Educational Psychology", "2+0"],
-            ["AGR 101", "Fundamentals of Agronomy and Agricultural Heritage", "1+1"],
-            ["BIC 101", "Fundamentals of Plant Biochemistry", "2+1"],
-            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
-            ["FOR 111", "Introduction to Forestry and Agroforestry", "1+1"],
-            ["HOR 111", "Fundamentals of Horticulture", "1+1"],
-            ["MAT 111", "Elementary Mathematics", "1+1"],
-            ["PBG 101", "Introduction to Agricultural Botany", "1+1"]
-          ],
-          "II": [
-            ["AEC 102", "Fundamentals of Agricultural Economics", "1+1"],
-            ["AEX 102", "Fundamentals of Agricultural Extension Education", "2+1"],
-            ["AGM 101", "Fundamentals of Microbiology", "2+1"],
-            ["AGR 102", "Introductory Agro-meteorology and Climate Change", "1+1"],
-            ["CRP 101", "Fundamentals of Crop Physiology", "2+1"],
-            ["FSN 111", "Principles of Food Science and Nutrition", "1+1"],
-            ["HOR 112", "Production Technology for Fruit and Plantation Crops", "1+1"],
-            ["RSG 101", "Geo-informatics for Precision Farming", "1+0"],
-            ["SWE 112", "Soil and Water Conservation Engineering", "1+1"]
-          ]
-        },
-        "B.Tech. (Energy and Environmental Engineering)": {
-          "I": [
-            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
-            ["MAT 101", "Engineering Mathematics - I", "2+1"],
-            ["PHY 101", "Engineering Physics", "2+1"],
-            ["CHM 101", "Engineering Chemistry", "2+1"],
-            ["EEE 101", "Basics of Electrical Engineering", "1+1"],
-            ["MEC 101", "Engineering Graphics", "0+2"],
-            ["EEE 102", "Principles of Energy and Environmental Engineering", "2+0"],
-            ["NSS 101", "National Service Scheme", "0+1"]
-          ],
-          "II": [
-            ["MAT 102", "Engineering Mathematics - II", "2+1"],
-            ["MEC 102", "Workshop Practice", "0+2"],
-            ["EEE 103", "Fluid Mechanics and Hydraulics", "2+1"],
-            ["EEE 104", "Environmental Chemistry and Microbiology", "2+1"],
-            ["EEE 105", "Thermodynamics and Heat Transfer", "2+1"],
-            ["COM 101", "Computer Programming and Data Structures", "1+1"],
-            ["AEX 101", "Technical Communication and Soft Skills", "0+1"]
-          ]
-        },
-        "B.Sc. (Hons.) Horticulture": {
-          "I": [
-            ["HOR 101", "Fundamentals of Horticulture", "1+1"],
-            ["BOT 101", "Elementary Botany", "1+1"],
-            ["ENG 101", "Comprehension and Communication Skills in English", "1+1"],
-            ["MAT 111", "Elementary Mathematics", "1+1"],
-            ["AGR 101", "Fundamentals of Agronomy", "1+1"]
-          ],
-          "II": [
-            ["HOR 102", "Plant Propagation and Nursery Management", "1+1"],
-            ["AEC 101", "Agricultural Economics", "1+1"],
-            ["AGM 101", "Microbiology", "2+1"],
-            ["CRP 101", "Crop Physiology", "2+1"]
-          ]
-        },
-        "B.Sc. (Hons.) Agri Business Management": {
-          "I": [
-            ["ABM 101", "Principles of Management", "2+0"],
-            ["AEC 101", "Microeconomics", "2+0"],
-            ["ENG 101", "Communication Skills", "1+1"],
-            ["MAT 111", "Business Mathematics", "2+1"]
-          ],
-          "II": [
-            ["ABM 102", "Agribusiness Environment and Policy", "2+0"],
-            ["AEC 102", "Agricultural Marketing", "2+1"],
-            ["ACC 101", "Financial Accounting", "2+1"]
-          ]
-        },
-        "B.Sc. (Hons.) Forestry": {
-          "I": [
-            ["FOR 101", "Introduction to Forestry", "2+0"],
-            ["BOT 101", "Forest Botany", "1+1"],
-            ["ENG 101", "English", "1+1"]
-          ],
-          "II": [
-            ["FOR 102", "Dendrology", "1+2"],
-            ["FOR 103", "Silviculture Principles", "2+1"]
-          ]
-        },
-        "B.Sc. (Hons.) Sericulture": {
-          "I": [
-            ["SER 101", "Introduction to Sericulture", "2+0"],
-            ["BOT 101", "Botany for Sericulture", "1+1"]
-          ],
-          "II": [
-            ["SER 102", "Mulberry Cultivation", "1+1"],
-            ["SER 103", "Silkworm Rearing", "1+2"]
-          ]
-        },
-        "B.Sc. (Hons.) Food, Nutrition and Dietetics": {
-          "I": [
-            ["FSN 101", "Principles of Human Nutrition", "2+0"],
-            ["CHM 101", "Food Chemistry", "2+1"]
-          ],
-          "II": [
-            ["FSN 102", "Food Microbiology", "2+1"],
-            ["FSN 103", "Meal Management", "1+1"]
-          ]
-        },
-        "B.Tech. (Agricultural Engineering)": {
-          "I": [
-            ["BAE 101", "Engineering Mathematics - I", "2+1"],
-            ["BAE 102", "Engineering Physics", "2+1"],
-            ["BAE 103", "Engineering Graphics", "0+2"]
-          ],
-          "II": [
-            ["BAE 104", "Engineering Mathematics - II", "2+1"],
-            ["BAE 105", "Surveying and Leveling", "1+2"],
-            ["BAE 106", "Fluid Mechanics", "2+1"]
-          ]
-        },
-        "B.Tech. (Food Technology)": {
-          "I": [
-            ["FTT 101", "Introductory Food Technology", "2+0"],
-            ["CHM 101", "Engineering Chemistry", "2+1"]
-          ],
-          "II": [
-            ["FTT 102", "Food Chemistry", "2+1"],
-            ["FTT 103", "Food Microbiology", "2+1"]
-          ]
-        },
-        "B.Tech. (Agricultural Information Technology)": {
-          "I": [
-            ["AIT 101", "Fundamentals of Computers", "2+1"],
-            ["MAT 101", "Mathematics for IT", "2+1"]
-          ],
-          "II": [
-            ["AIT 102", "Data Structures and Algorithms", "2+1"],
-            ["AIT 103", "Object Oriented Programming", "2+1"]
-          ]
-        },
-        "B.Tech. (Biotechnology)": {
-          "I": [
-            ["BTC 101", "Cell Biology and Genetics", "2+1"],
-            ["CHM 101", "Biochemistry", "2+1"]
-          ],
-          "II": [
-            ["BTC 102", "Molecular Biology", "2+1"],
-            ["BTC 103", "Microbial Biotechnology", "2+1"]
-          ]
-        },
-        "B.Tech. (Bioinformatics)": {
-          "I": [
-            ["BIN 101", "Introduction to Bioinformatics", "2+0"],
-            ["MAT 101", "Discrete Mathematics", "2+1"]
-          ],
-          "II": [
-            ["BIN 102", "Biological Databases", "2+1"],
-            ["BIN 103", "Sequence Analysis", "2+1"]
-          ]
-        }
-      } },
-      { id: "2025 onwards", label: "Syllabus for batches from 2025", from: 2025, to: 9999, programmes: {
-        "B.Sc. (Hons.) Agriculture": {
-          "I": [
-            ["AGR 101", "Farming Based Livelihood Systems", "2+1"],
-            ["BAE 101", "Introduction to Agricultural Engineering", "2+1"],
-            ["BAE 102", "Surveying and leveling", "1+2"],
-            ["BAE 103", "Basic Electrical Gadgets and instruments", "2+1"],
-            ["TAM 151 / ENG 151", "மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
-            ["COM 101", "Agricultural Informatics and Artificial Intelligence for Engineers", "1+1"],
-            ["COM 102", "Computer Programming and Data Structures", "1+1"],
-            ["AEX 101", "Communication Skills", "1+1"],
-            ["NSS 101 / NCC 101", "National Service scheme / National Cadet Corps", "0+1"]
-          ]
-        },
-        "B.Tech. (Energy and Environmental Engineering)": {
-          "I": [
-            ["MAT 101", "Engineering Mathematics - I", "2+1"],
-            ["PHY 101", "Engineering Physics", "2+1"],
-            ["CHM 101", "Engineering Chemistry", "2+1"],
-            ["EEE 101", "Principles of Renewable Energy", "2+1"],
-            ["MEC 101", "Engineering Graphics and CAD", "0+2"],
-            ["COM 101", "Agricultural Informatics and AI", "1+1"],
-            ["ENG 151", "English for Professional Skills", "0+2"],
-            ["NSS 101", "National Service Scheme", "0+1"]
-          ]
-        }
-      } }
-    ];
+
+    /* The course lists live in syllabus.js (loaded before this script). Edit that file to change the syllabus. */
 
     /* ---------- Helpers ---------- */
     function defaultStore() { return { [DEFAULT_PROFILE_ID]: { name: 'Default Student', id: '', semesters: [] } }; }
-    function icons() { if (window.lucide) window.lucide.createIcons(); }
+    function icons() { try { if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons(); } catch (e) { console.warn('Icons could not be drawn:', e); } }
     function $(id) { return document.getElementById(id); }
 
     function toast(message, type = 'info', ms = 3500) {
@@ -606,12 +438,19 @@
       try {
         const raw = localStorage.getItem(GUEST_KEY);
         const parsed = raw ? JSON.parse(raw) : null;
-        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length) return parsed;
+        if (parsed && typeof parsed === 'object') {
+          const clean = {};
+          Object.entries(parsed).forEach(([pid, prof]) => { if (prof && typeof prof === 'object' && !Array.isArray(prof)) clean[pid] = prof; });
+          if (Object.keys(clean).length) return clean;
+        }
       } catch (e) { /* ignore corrupt data */ }
       return defaultStore();
     }
 
-    /* ---------- Google account + Google Drive storage ---------- */
+    /* ---------- Google account + Google Drive storage ----------
+       Everything is stored in the signed-in person's OWN Google Drive, in the hidden "app data" folder
+       (permission: drive.appdata). Nothing is kept on any server owned by the developer.
+       Several devices stay in step by merging per profile (newest edit wins) before every save. */
     const GOOGLE_CLIENT_ID = '473229147697-o030ithbphjntcjq1bk0iumpraofuiul.apps.googleusercontent.com';
     const DRIVE_FILE_NAME = 'tnau-ogpa-data.json';
     const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
@@ -622,30 +461,38 @@
     let tokenClient = null, accessToken = null, tokenExpiry = 0;
     let driveFileId = null, lastRemoteModified = null, cloudPoll = null;
     let needsReconnect = false, silentAttempt = false, flushing = false, flushAgain = false;
-    let tombstones = {};
+    let tombstones = {};          // profileId -> time it was deleted (so a deletion survives merging)
 
     function getHint() { try { return localStorage.getItem(HINT_KEY) || ''; } catch (e) { return ''; } }
     function googleConfigured() { return GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('PASTE_'); }
     function markDirty(pid) { if (!cloudDataStore[pid]) return; cloudDataStore[pid].updatedAt = Date.now(); dirtyProfiles.add(pid); }
     function markDeleted(pid) { tombstones[pid] = Date.now(); dirtyProfiles.delete(pid); deletedProfiles.add(pid); }
 
+    /* ---------- Boot ---------- */
     document.addEventListener('DOMContentLoaded', () => {
-      cloudDataStore = loadGuestStore();
-      restoreActiveProfileId();
-      renderAuthBar();
-      initProfilesList();
-      icons();
+      // Each step is isolated, so a failure in one (for example the icon library) cannot stop the others.
+      const step = (fn) => { try { fn(); return true; } catch (err) { console.error(err); window.__tnauErrors.push(String((err && err.message) || err)); return false; } };
+      let ok = true;
+      // Start in guest mode immediately so the page is usable even if Google is slow or blocked.
+      ok = step(() => { cloudDataStore = loadGuestStore(); restoreActiveProfileId(); }) && ok;
+      ok = step(initProfilesList) && ok;      // the sheet itself comes first
+      ok = step(renderAuthBar) && ok;
+      step(icons);
+      if (ok) window.__tnauBooted = true;
 
       let tries = 0;
       const t = setInterval(() => {
         if (window.google && google.accounts && google.accounts.oauth2) {
           clearInterval(t);
           initGoogle();
-          if (getHint() && googleConfigured()) googleSignIn(true);
+          if (getHint() && googleConfigured()) googleSignIn(true);   // try to resume quietly
         } else if (++tries > 50) clearInterval(t);
       }, 100);
     });
 
+    window.addEventListener('error', (e) => { if (window.__tnauBooted) toast('Page error: ' + (e.message || 'unknown'), 'error', 10000); });
+
+    // Flush pending edits when the tab is hidden or closed; check for newer data when it comes back.
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden' && saveTimer) flushSave();
       if (document.visibilityState === 'visible') pollRemote();
@@ -674,6 +521,7 @@
       icons();
     }
 
+    /* ---------- Sign in ---------- */
     function initGoogle() {
       if (tokenClient) return true;
       if (!googleConfigured() || !(window.google && google.accounts && google.accounts.oauth2)) return false;
@@ -687,9 +535,9 @@
     }
 
     function googleSignIn(silent) {
-      silentAttempt = silent === true;
-      if (!googleConfigured()) { toast('Google sign-in is not set up yet.', 'error', 8000); return; }
-      if (!initGoogle()) { toast('Google sign-in could not load.', 'error', 8000); return; }
+      silentAttempt = silent === true;      // an onclick call passes no argument, so it is a normal (visible) sign-in
+      if (!googleConfigured()) { toast('Google sign-in is not set up yet. The developer still has to add the Google Client ID.', 'error', 8000); return; }
+      if (!initGoogle()) { toast('Google sign-in could not load. Check your connection or ad-blocker and try again.', 'error', 8000); return; }
       const opts = { prompt: silentAttempt ? 'none' : '' };
       if (getHint()) opts.hint = getHint();
       tokenClient.requestAccessToken(opts);
@@ -697,16 +545,17 @@
 
     function onGoogleError(err) {
       const type = err && err.type;
-      if (silentAttempt) { silentAttempt = false; return; }
+      if (silentAttempt) { silentAttempt = false; return; }    // quiet resume failed: the Reconnect button is already showing
       if (type === 'popup_closed') toast('Sign-in was cancelled.');
-      else toast('Google sign-in failed.', 'error');
+      else if (type === 'popup_failed_to_open') toast('The sign-in window was blocked. Allow pop-ups for this site and try again.', 'error', 8000);
+      else toast('Google sign-in failed' + (type ? ` (${type})` : '') + '.', 'error');
     }
 
     async function onGoogleToken(resp) {
       silentAttempt = false;
       if (!resp || resp.error) { onGoogleError({ type: resp && resp.error }); return; }
       if (google.accounts.oauth2.hasGrantedAllScopes && !google.accounts.oauth2.hasGrantedAllScopes(resp, DRIVE_SCOPE)) {
-        toast('Please grant Google Drive permissions.', 'error', 8000);
+        toast('Please tick the box that lets this app store its data in your Google Drive, then try again.', 'error', 8000);
         return;
       }
       accessToken = resp.access_token;
@@ -717,7 +566,7 @@
           const res = await withTimeout(fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } }), 10000);
           const info = await res.json();
           currentUser = { email: info.email || 'Google account' };
-          try { localStorage.setItem(HINT_KEY, currentUser.email); } catch (e) {}
+          try { localStorage.setItem(HINT_KEY, currentUser.email); } catch (e) { /* storage blocked */ }
         } catch (e) { currentUser = { email: 'Google account' }; }
       }
       renderAuthBar();
@@ -726,14 +575,14 @@
     }
 
     async function triggerLogout() {
-      if (!confirm('Log out? Your data stays safe in your Google Drive.')) return;
-      if (saveTimer || dirtyProfiles.size) { try { await flushSave(); } catch (e) {} }
+      if (!confirm('Log out? Your data stays safe in your own Google Drive.')) return;
+      if (saveTimer || dirtyProfiles.size) { try { await flushSave(); } catch (e) { /* offline: nothing more to do */ } }
       stopPolling();
       accessToken = null; tokenExpiry = 0; cloudReady = false; needsReconnect = false;
       currentUser = null; driveFileId = null; lastRemoteModified = null; tombstones = {};
       dirtyProfiles.clear(); deletedProfiles.clear();
-      try { localStorage.removeItem(HINT_KEY); } catch (e) {}
-      cloudDataStore = loadGuestStore();
+      try { localStorage.removeItem(HINT_KEY); } catch (e) { /* storage blocked */ }
+      cloudDataStore = loadGuestStore();      // the signed-in data is not kept on this device
       restoreActiveProfileId();
       renderAuthBar();
       initProfilesList();
@@ -741,13 +590,14 @@
       toast('Logged out');
     }
 
+    /* ---------- Google Drive (app-data folder) ---------- */
     async function driveFetch(url, opts = {}) {
       if (!accessToken || Date.now() > tokenExpiry - 30000) throw Object.assign(new Error('token expired'), { code: 'auth-expired' });
       const res = await withTimeout(fetch(url, { ...opts, headers: { Authorization: `Bearer ${accessToken}`, ...(opts.headers || {}) } }), 20000);
       if (res.status === 401) throw Object.assign(new Error('token rejected'), { code: 'auth-expired' });
       if (!res.ok) {
         let msg = '';
-        try { msg = (await res.json()).error.message || ''; } catch (e) {}
+        try { msg = (await res.json()).error.message || ''; } catch (e) { /* no body */ }
         throw Object.assign(new Error(msg || res.statusText), { code: 'http-' + res.status });
       }
       return res;
@@ -782,6 +632,7 @@
 
     function normalizeRemote(d) { return { profiles: (d && d.profiles) || {}, deleted: (d && d.deleted) || {} }; }
 
+    // Newest edit wins per profile; a deletion wins only if it happened after the profile's last edit.
     function mergeStores(localProfiles, localDeleted, remote) {
       const rp = remote.profiles || {}, rd = remote.deleted || {};
       const deleted = {};
@@ -806,8 +657,11 @@
     function explainCloudError(code) {
       const c = String(code || '').toLowerCase();
       if (c.includes('auth-expired') || c.includes('http-401')) return 'Your Google session expired. Press Reconnect.';
-      if (c.includes('http-403')) return 'Google Drive refused access.';
-      return 'Unexpected error occurred.';
+      if (c.includes('http-403')) return 'Google Drive refused access. Check that the Google Drive API is enabled for the project, and that you allowed the app to store its data in your Drive.';
+      if (c.includes('http-404')) return 'The Drive file was not found. Try again.';
+      if (c.includes('http-429')) return 'Google is rate-limiting requests. Wait a minute and try again.';
+      if (c.includes('timeout') || c.includes('failed to fetch') || c.includes('networkerror')) return 'No answer from Google. Check your internet connection or ad-blocker.';
+      return 'Unexpected error. Please send this code to the developer.';
     }
 
     function handleCloudError(e, quiet) {
@@ -818,6 +672,7 @@
       if (!quiet) toast(explainCloudError(code), 'error', 8000);
     }
 
+    /* Called once after sign-in: load the person's data from their Drive (or start it from guest data). */
     async function connectDrive() {
       setSyncStatus('saving');
       try {
@@ -829,7 +684,7 @@
         if (remote && Object.keys(remote.profiles).length) {
           cloudDataStore = remote.profiles; tombstones = remote.deleted;
         } else {
-          const guest = loadGuestStore();
+          const guest = loadGuestStore();     // first sign-in: carry over anything entered as a guest
           cloudDataStore = storeHasContent(guest) ? guest : defaultStore();
           tombstones = {};
           if (storeHasContent(guest)) toast('Your guest data was copied into your Google Drive', 'success');
@@ -847,6 +702,7 @@
     function startPolling() { stopPolling(); cloudPoll = setInterval(pollRemote, POLL_MS); }
     function stopPolling() { clearInterval(cloudPoll); cloudPoll = null; }
 
+    // Pick up changes made on another device (checked every 30 s and whenever the tab becomes visible).
     async function pollRemote() {
       if (!currentUser || !cloudReady || !driveFileId || saveTimer || flushing || dirtyProfiles.size || deletedProfiles.size) return;
       try {
@@ -867,17 +723,26 @@
       } catch (e) { handleCloudError(e, true); }
     }
 
+    /* ---------- Cloud diagnostics ("Test cloud") ---------- */
     async function runCloudDiagnostics() {
-      if (!googleConfigured()) { alert('Google Client ID not configured.'); return; }
-      if (!currentUser || !accessToken) { alert('Not connected to Google.'); return; }
-      toast('Testing your Google Drive connection...');
+      if (!googleConfigured()) { alert('The Google Client ID has not been added to this page yet (GOOGLE_CLIENT_ID), so Google sign-in cannot work. The developer needs to add it.'); return; }
+      if (!currentUser || !accessToken) { alert('You are not connected to Google. Press "Continue with Google" (or "Reconnect") first.'); return; }
+      toast('Testing your Google Drive connection (up to 40 seconds)...');
       let readErr = null, writeErr = null, file = null, content = null;
       try { file = await driveFind(); if (file) content = await driveRead(file.id); } catch (e) { readErr = (e && (e.code || e.message)) || String(e); }
       if (!readErr) {
         try { await driveWrite(file ? file.id : null, content || { app: 'tnau-ogpa', version: 2, profiles: {}, deleted: {} }); }
         catch (e) { writeErr = (e && (e.code || e.message)) || String(e); }
       }
-      alert(`Read: ${readErr ? 'FAIL ('+readErr+')' : 'OK'}\nWrite: ${writeErr ? 'FAIL ('+writeErr+')' : 'OK'}`);
+      const lines = [
+        `Account: ${currentUser.email}`,
+        `Read from Drive:  ${readErr ? 'FAILED (' + readErr + ')' : 'OK'}`,
+        `Write to Drive:   ${readErr ? 'not tested' : writeErr ? 'FAILED (' + writeErr + ')' : 'OK'}`
+      ];
+      const problem = readErr || writeErr;
+      lines.push('', problem ? explainCloudError(problem) : 'Everything works. If data does not appear on another device, sign in there with the same Google account.');
+      alert(lines.join('\n'));
+      if (problem) handleCloudError({ code: problem }, true); else setSyncStatus(cloudReady ? 'cloud' : 'saving');
     }
 
     function scheduleSave() {
@@ -889,7 +754,7 @@
     async function flushSave() {
       clearTimeout(saveTimer);
       saveTimer = null;
-      try { localStorage.setItem(ACTIVE_KEY, activeProfileId); } catch (e) {}
+      try { localStorage.setItem(ACTIVE_KEY, activeProfileId); } catch (e) { /* storage blocked */ }
       if (!currentUser) {
         try {
           localStorage.setItem(GUEST_KEY, JSON.stringify(cloudDataStore));
@@ -898,11 +763,12 @@
         } catch (e) { setSyncStatus('error'); }
         return;
       }
-      if (!cloudReady) { setSyncStatus(needsReconnect ? 'reauth' : 'offline'); return; }
+      if (!cloudReady) { setSyncStatus(needsReconnect ? 'reauth' : 'offline'); return; }   // never write before the real copy has loaded
       if (flushing) { flushAgain = true; return; }
       flushing = true;
       const sentDirty = new Set(dirtyProfiles), sentDeleted = new Set(deletedProfiles);
       try {
+        // read the latest copy, merge it with ours, write the result back
         let remote = { profiles: {}, deleted: {} };
         let id = driveFileId;
         if (id) {
@@ -923,18 +789,21 @@
         setSyncStatus('cloud');
       } catch (e) {
         handleCloudError(e);
+        if (!(e && e.code === 'auth-expired')) setTimeout(() => { if (currentUser && (dirtyProfiles.size || deletedProfiles.size)) flushSave(); }, 15000);
       } finally {
         flushing = false;
         if (flushAgain) { flushAgain = false; flushSave(); }
       }
     }
 
+    /* ---------- Profiles ---------- */
     function initProfilesList() {
       renderProfileSwitcher('');
       $('profileSearchInput').value = '';
       loadProfileData(activeProfileId);
     }
 
+    // Rebuilds the dropdown only; reloads the sheet only if the active profile fell out of the filter.
     function renderProfileSwitcher(filterQuery) {
       const switcher = $('profileSwitcher');
       switcher.innerHTML = '';
@@ -1000,7 +869,7 @@
         toast('You must keep at least one student profile.', 'error');
         return;
       }
-      if (!confirm(`Delete "${profileLabel(cloudDataStore[activeProfileId])}"?`)) return;
+      if (!confirm(`Delete "${profileLabel(cloudDataStore[activeProfileId])}"? This cannot be undone.`)) return;
       markDeleted(activeProfileId);
       delete cloudDataStore[activeProfileId];
       activeProfileId = Object.keys(cloudDataStore)[0];
@@ -1014,6 +883,7 @@
       saveAndCalculate();
     }
 
+    /* ---------- Formatting helpers ---------- */
     function getFormattedBatchString() {
       const batchVal = $('batchInput').value.trim();
       const startYear = parseInt(batchVal, 10);
@@ -1047,6 +917,7 @@
       return s.split('+').reduce((sum, p) => sum + (parseFloat(p) || 0), 0);
     }
 
+    /* ---------- Settings: pass mark & theme ---------- */
     function setPassMark(val, fromInput = false) {
       const num = parseFloat(val);
       if (isNaN(num) || num < 0 || num > 100) return;
@@ -1087,9 +958,11 @@
       return '#' + ((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1);
     }
 
+    /* ---------- Semesters & courses ---------- */
     function addNewSemesterBlock(title = '') {
       semesterCounter++;
       const semId = `sem-block-${semesterCounter}`;
+      // A new card is numbered after the highest semester already on the sheet (not by how many were ever created).
       const highest = Math.max(0, ...[...document.querySelectorAll('.sem-title-input')].map(i => {
         const m = (i.value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1];
         return m ? (/^\d+$/.test(m) ? parseInt(m, 10) : romanToInt(m.toUpperCase())) : 0;
@@ -1106,15 +979,12 @@
             <i data-lucide="book-open" class="w-5 h-5 theme-text"></i>
             <input type="text" aria-label="Semester title" onchange="formatAndSave(this)" oninput="saveAndCalculate()" class="sem-title-input text-base font-bold text-slate-800 bg-transparent outline-none border-b border-dashed border-slate-300 px-1 py-0.5">
           </div>
-          <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
+          <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
             <div class="text-xs font-semibold theme-text bg-white px-3 py-1 rounded-lg border border-slate-200">
               GPA: <span class="sem-gpa-badge text-sm font-bold">0.00</span>
             </div>
-            <div class="flex items-center gap-1.5 no-print">
-              <button onclick="toggleBulkTextPanel('${semId}')" class="px-2.5 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-100 transition flex items-center gap-1" title="Paste multiple lines of text">
-                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Bulk Paste
-              </button>
-              <button onclick="loadCatalogCourses('${semId}')" class="px-2.5 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-100 transition flex items-center gap-1" title="Fill this semester from syllabus">
+            <div class="flex items-center gap-1 no-print">
+              <button onclick="loadCatalogCourses('${semId}')" class="px-2.5 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-100 transition flex items-center gap-1" title="Fill this semester from the TNAU syllabus for your programme and batch">
                 <i data-lucide="list-plus" class="w-3.5 h-3.5"></i> Load Courses
               </button>
               <button onclick="addCourseRowToSem('${semId}'); saveAndCalculate();" class="px-2.5 py-1 theme-card-light theme-text border rounded-lg text-xs font-semibold hover:opacity-80 transition flex items-center gap-1">
@@ -1124,23 +994,6 @@
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
-          </div>
-        </div>
-
-        <!-- Bulk Text Input Area -->
-        <div class="bulkTextPanel hidden p-4 bg-slate-100 border-b border-slate-200 space-y-2 no-print">
-          <label class="block text-xs font-semibold text-slate-700">
-            Smart Bulk Text Import (Handles Course Code & Title combined or separate):
-          </label>
-          <p class="text-[11px] text-slate-500">
-            Examples: <code>ENG 101 Comprehension and Communication Skills 1+1 68 6.8</code> or <code>AGR101 Agronomy 1+1 85</code>
-          </p>
-          <textarea class="bulkTextArea w-full h-24 p-2.5 text-xs font-mono bg-white border border-slate-300 rounded-xl outline-none focus:border-slate-500" placeholder="Paste your text here..."></textarea>
-          <div class="flex gap-2 justify-end">
-            <button onclick="toggleBulkTextPanel('${semId}')" class="px-3 py-1 bg-slate-200 text-slate-700 text-xs rounded-lg font-medium hover:bg-slate-300 transition">Cancel</button>
-            <button onclick="parseAndImportBulkText('${semId}')" class="px-3 py-1 theme-btn-primary text-xs rounded-lg font-medium shadow-sm flex items-center gap-1">
-              <i data-lucide="check" class="w-3.5 h-3.5"></i> Process & Append
-            </button>
           </div>
         </div>
 
@@ -1163,106 +1016,10 @@
           </table>
         </div>
       `;
-      div.querySelector('.sem-title-input').value = formattedTitle;
+      div.querySelector('.sem-title-input').value = formattedTitle;   // set via DOM: no HTML injection
       $('semestersContainer').appendChild(div);
       icons();
       return semId;
-    }
-
-    function toggleBulkTextPanel(semId) {
-      const card = $(semId);
-      if (!card) return;
-      const panel = card.querySelector('.bulkTextPanel');
-      panel.classList.toggle('hidden');
-    }
-
-    function parseAndImportBulkText(semId) {
-      const card = $(semId);
-      if (!card) return;
-      const textarea = card.querySelector('.bulkTextArea');
-      const text = textarea.value.trim();
-      if (!text) { toast('No text entered to import.', 'error'); return; }
-
-      const lines = text.split('\n');
-      let importedCount = 0;
-
-      lines.forEach(line => {
-        const cleanLine = line.trim();
-        if (!cleanLine) return;
-
-        let code = '', title = '', split = '', marks = '', gp = '';
-
-        const parts = cleanLine.split(/\t+|\s{2,}|,/);
-        
-        if (parts.length >= 2) {
-          const firstToken = parts[0].trim();
-          const isCode = /^[A-Z]{2,4}\s*\d{2,3}$/i.test(firstToken) || firstToken.length <= 8;
-
-          if (isCode) {
-            code = firstToken;
-            const remainingParts = parts.slice(1);
-            
-            let titleTokens = [];
-            remainingParts.forEach(p => {
-              const val = p.trim();
-              if (/^\d\+\d$/.test(val)) {
-                split = val;
-              } else if (!isNaN(parseFloat(val)) && parseFloat(val) > 10 && !marks) {
-                marks = val;
-              } else if (!isNaN(parseFloat(val)) && parseFloat(val) <= 10 && !gp) {
-                gp = val;
-              } else {
-                titleTokens.push(val);
-              }
-            });
-            title = titleTokens.join(' ');
-          } else {
-            const tokens = cleanLine.split(/\s+/);
-            let titleBuffer = [];
-            tokens.forEach(tok => {
-              if (!code && /^[A-Z]{2,4}\s*\d{2,3}$/i.test(tok)) {
-                code = tok;
-              } else if (/^\d\+\d$/.test(tok)) {
-                split = tok;
-              } else if (!isNaN(parseFloat(tok)) && parseFloat(tok) > 10 && !marks) {
-                marks = tok;
-              } else if (!isNaN(parseFloat(tok)) && parseFloat(tok) <= 10 && !gp) {
-                gp = tok;
-              } else {
-                titleBuffer.push(tok);
-              }
-            });
-            title = titleBuffer.join(' ');
-          }
-        } else {
-          const tokens = cleanLine.split(/\s+/);
-          let titleBuffer = [];
-          tokens.forEach((tok, idx) => {
-            if (idx === 0 && (/^[A-Z]{2,4}\s*\d{2,3}$/i.test(tok) || tok.length <= 7)) {
-              code = tok;
-            } else if (/^\d\+\d$/.test(tok)) {
-              split = tok;
-            } else if (!isNaN(parseFloat(tok)) && parseFloat(tok) > 10 && !marks) {
-              marks = tok;
-            } else if (!isNaN(parseFloat(tok)) && parseFloat(tok) <= 10 && !gp) {
-              gp = tok;
-            } else {
-              titleBuffer.push(tok);
-            }
-          });
-          title = titleBuffer.join(' ');
-        }
-
-        if (code || title || split || marks || gp) {
-          addCourseRowToSem(semId, { code, title, split, marks, gp });
-          importedCount++;
-        }
-      });
-
-      textarea.value = '';
-      toggleBulkTextPanel(semId);
-      saveAndCalculate();
-      toast(`Imported ${importedCount} courses successfully`, 'success');
     }
 
     function formatAndSave(input) { input.value = formatSemesterTitle(input.value); sortSemesterCards(); saveAndCalculate(); }
@@ -1274,6 +1031,7 @@
       return total;
     }
 
+    // Keep semester cards in Semester I, II, III... order; anything without a number stays after them.
     function sortSemesterCards() {
       const container = $('semestersContainer');
       const cards = [...container.children];
@@ -1290,6 +1048,8 @@
     function removeSemesterBlock(semId) {
       const el = $(semId);
       if (!el) return;
+      const hasData = [...el.querySelectorAll('.course-code, .course-title, .course-marks, .course-gp-input')].some(i => i.value);
+      if (hasData && !confirm('Remove this semester and all its courses?')) return;
       el.remove();
       saveAndCalculate();
     }
@@ -1313,12 +1073,13 @@
         <td class="px-3 py-2 text-center no-print"><button onclick="removeCourseRow(this)" aria-label="Remove course" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
       `;
 
+      // Values are assigned through the DOM so quotes or tags in titles can never break the markup.
       tr.querySelector('.course-code').value = data.code || '';
       tr.querySelector('.course-title').value = data.title || '';
       tr.querySelector('.course-split').value = data.split || '';
       tr.querySelector('.course-marks').value = data.marks ?? '';
       tr.querySelector('.course-gp-input').value = data.gp ?? '';
-      if (data.auto) { tr.dataset.auto = '1'; tr.dataset.autoKey = data.autoKey || ''; }
+      if (data.auto) { tr.dataset.auto = '1'; tr.dataset.autoKey = data.autoKey || ''; }   // row came from the syllabus catalogue
       if (tr.querySelector('.course-marks').value !== '' && tr.querySelector('.course-gp-input').value === '') deriveScores(tr, 'marks');
       else if (tr.querySelector('.course-gp-input').value !== '' && tr.querySelector('.course-marks').value === '') deriveScores(tr, 'gp');
 
@@ -1337,6 +1098,7 @@
 
     function updateRowNumbers(tbody) { tbody.querySelectorAll('tr').forEach((row, i) => row.querySelector('.row-number').innerText = i + 1); }
 
+    // Marks and grade point mirror each other (GP = marks / 10).
     function deriveScores(row, source) {
       const marksInput = row.querySelector('.course-marks'), gpInput = row.querySelector('.course-gp-input');
       if (source === 'marks') {
@@ -1350,8 +1112,9 @@
 
     function syncScoreInputs(row, source) { deriveScores(row, source); saveAndCalculate(); }
 
+    /* ---------- Syllabus auto-fill ---------- */
     function findCurriculum(batchYear) {
-      return CURRICULA.find(c => batchYear >= c.from && batchYear <= c.to) || null;
+      return (window.CURRICULA || []).find(c => batchYear >= c.from && batchYear <= c.to) || null;
     }
 
     function loadCatalogCourses(semId) {
@@ -1359,31 +1122,127 @@
       if (!card) return;
       const degree = $('degreeInput').value;
       const batchYear = parseInt($('batchInput').value, 10);
-      if (!degree || isNaN(batchYear)) { toast('Select Degree and Batch Year first.', 'error'); return; }
+      if (!degree || isNaN(batchYear)) { toast('Select the Degree Programme and enter the Batch Start Year first.', 'error'); return; }
 
+      if (!window.CURRICULA) { toast('The syllabus file (syllabus.js) did not load. Make sure it is uploaded in the same folder as this page, then refresh.', 'error', 10000); return; }
       const set = findCurriculum(batchYear);
-      if (!set) { toast('No syllabus catalogue found for this batch.', 'error'); return; }
+      if (!set) { toast(`No syllabus is set up for batch ${batchYear}.`, 'error'); return; }
       const programme = set.programmes[degree];
-      if (!programme) { toast('Syllabus data for this programme is being updated.', 'error'); return; }
+      if (!programme) { toast(`${degree}: the ${set.id} course list hasn't been added yet. You can still add courses manually.`, 'error'); return; }
 
       const roman = toRoman((card.querySelector('.sem-title-input').value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1] || '');
       const courses = programme[roman];
-      if (!courses) { toast('No course list mapped for this semester.', 'error'); return; }
+      if (!courses) { toast(`No courses listed for ${card.querySelector('.sem-title-input').value || 'this semester'}. Name it like "Semester IV".`, 'error'); return; }
+
+      const keyOf = (code, title) => `${code.trim().toUpperCase()}|${title.trim().toLowerCase()}`;
+      const existing = new Set([...card.querySelectorAll('.courseTableBody tr')].map(r => keyOf(r.querySelector('.course-code').value, r.querySelector('.course-title').value)));
+      // Reuse blank rows (e.g. from "Add Course") instead of leaving gaps above the loaded ones.
+      card.querySelectorAll('.courseTableBody tr').forEach(r => {
+        if (![...r.querySelectorAll('input')].some(i => i.value)) r.remove();
+      });
 
       let added = 0;
       isLoading = true;
       try {
         for (const [code, title, split] of courses) {
+          if (existing.has(keyOf(code, title))) continue;
           addCourseRowToSem(semId, { code, title, split, auto: true, autoKey: `${degree}|${set.id}` });
           added++;
         }
       } finally { isLoading = false; }
       saveAndCalculate();
-      toast(`Loaded ${added} courses`, 'success');
+      toast(added ? `Loaded ${added} course${added > 1 ? 's' : ''} (${set.id}). Enter your marks.` : 'All courses for this semester are already there.', added ? 'success' : 'info');
     }
 
-    function onProgrammeOrBatchChange() { saveAndCalculate(); }
+    /* ---------- Automatic syllabus fill ----------
+       Runs whenever the Degree Programme or Batch Start Year changes.
+       - Fills every semester that has nothing typed in yet (and creates the missing semester cards on a fresh sheet).
+       - Never touches rows where you've entered marks/grade points, or semesters you've typed your own courses into.
+       - If you switch programme/batch, un-marked rows from the previous syllabus are swapped for the new ones. */
+    function onProgrammeOrBatchChange() { applyCatalogAuto(); saveAndCalculate(); }
 
+    function rowHasScores(tr) { return tr.querySelector('.course-marks').value !== '' || tr.querySelector('.course-gp-input').value !== ''; }
+    function rowHasAnyInput(tr) { return [...tr.querySelectorAll('input')].some(i => i.value !== ''); }
+    function cardIsPristine(card) {
+      return [...card.querySelectorAll('.courseTableBody tr')].every(tr => tr.dataset.auto === '1' ? !rowHasScores(tr) : !rowHasAnyInput(tr));
+    }
+    function cardRoman(card) {
+      return toRoman((card.querySelector('.sem-title-input').value.match(/([0-9]+|[IVXLCDM]+)\s*$/i) || [])[1] || '');
+    }
+
+    function applyCatalogAuto() {
+      if (isLoading) return;
+      const degree = $('degreeInput').value;
+      const raw = $('batchInput').value.trim();
+      const year = parseInt(raw, 10);
+      const yearReady = /^\d{4}$/.test(raw) && year >= 2000;   // wait until a full year is typed
+
+      if (degree && yearReady && !window.CURRICULA) { toast('The syllabus file (syllabus.js) did not load. Make sure it is uploaded in the same folder as this page, then refresh.', 'error', 10000); return; }
+      const set = (degree && yearReady) ? findCurriculum(year) : null;
+      const programme = set ? set.programmes[degree] : null;
+      const key = programme ? `${degree}|${set.id}` : '';
+      const limit = parseInt($('semsDoneInput').value, 10) || 99;   // how many semesters the student has completed
+      const rankOf = (roman) => programme ? Object.keys(programme).indexOf(roman) : -1;
+
+      isLoading = true;
+      let filledCards = 0, filledRows = 0;
+      try {
+        // 1) Drop rows from a previous programme/batch selection unless marks were entered on them.
+        document.querySelectorAll('.semester-card').forEach(card => {
+          const tbody = card.querySelector('.courseTableBody');
+          delete card.dataset.cleared;
+          tbody.querySelectorAll('tr[data-auto="1"]').forEach(tr => { if (tr.dataset.autoKey !== key && !rowHasScores(tr)) { tr.remove(); card.dataset.cleared = '1'; } });
+          updateRowNumbers(tbody);
+        });
+
+        if (!programme) {
+          if (degree && yearReady) {
+            isLoading = false;
+            toast(set ? `${degree}: the ${set.id} course list isn't added yet. Add courses manually.` : `No syllabus is set up for batch ${year}.`, 'error');
+          }
+          return;
+        }
+
+        // 2a) Remove untouched semesters beyond the number completed (keep at least one card).
+        document.querySelectorAll('.semester-card').forEach(card => {
+          const r = rankOf(cardRoman(card));
+          const outOfScope = r >= limit || (r === -1 && card.dataset.cleared === '1');   // beyond completed semesters, or not in this syllabus
+          if (outOfScope && cardIsPristine(card) && document.querySelectorAll('.semester-card').length > 1) card.remove();
+        });
+
+        // 2b) On a fresh sheet, make sure there is a card for each completed semester in the syllabus.
+        {
+          const have = new Set([...document.querySelectorAll('.semester-card')].map(cardRoman));
+          Object.keys(programme).slice(0, limit).forEach(roman => { if (!have.has(roman)) addNewSemesterBlock(`Semester ${roman}`); });
+          // keep the cards in syllabus order
+          const container = $('semestersContainer');
+          const rank = r => { const i = Object.keys(programme).indexOf(r); return i < 0 ? 99 : i; };
+          [...container.children].sort((a, b) => rank(cardRoman(a)) - rank(cardRoman(b))).forEach(c => container.appendChild(c));
+        }
+
+        // 3) Fill each semester that is still untouched.
+        document.querySelectorAll('.semester-card').forEach(card => {
+          const courses = programme[cardRoman(card)];
+          if (!courses || rankOf(cardRoman(card)) >= limit) return;
+          if (!card.dataset.cleared && [...card.querySelectorAll('tr[data-auto="1"]')].some(tr => tr.dataset.autoKey === key)) return;  // already filled for this selection
+          // Fill only if the card holds nothing but syllabus rows or blanks (never mix into hand-typed courses).
+          if (![...card.querySelectorAll('.courseTableBody tr')].every(tr => tr.dataset.auto === '1' || !rowHasAnyInput(tr))) return;
+          card.querySelectorAll('.courseTableBody tr').forEach(tr => { if (!rowHasAnyInput(tr)) tr.remove(); });
+          const present = new Set([...card.querySelectorAll('.courseTableBody tr')].map(tr => `${tr.querySelector('.course-code').value.trim().toUpperCase()}|${tr.querySelector('.course-title').value.trim().toLowerCase()}`));
+          let added = 0;
+          courses.forEach(([code, title, split]) => {
+            if (present.has(`${code.toUpperCase()}|${title.toLowerCase()}`)) return;   // e.g. a row you already entered marks on
+            addCourseRowToSem(card.id, { code, title, split, auto: true, autoKey: key });
+            added++;
+          });
+          if (added) { filledCards++; filledRows += added; }
+        });
+      } finally { isLoading = false; }
+
+      if (filledCards) toast(`Filled ${filledRows} courses across ${filledCards} semester${filledCards > 1 ? 's' : ''} (${set.id}). Enter your marks.`, 'success');
+    }
+
+    /* ---------- Save / load profile ---------- */
     function collectActiveProfile() {
       const p = cloudDataStore[activeProfileId] || (cloudDataStore[activeProfileId] = {});
       markDirty(activeProfileId);
@@ -1447,6 +1306,7 @@
       calculateAll();
     }
 
+    /* ---------- Calculation ---------- */
     function calculateAll() {
       const name = $('studentNameInput').value.trim();
       const id = $('studentIdInput').value.trim();
@@ -1521,7 +1381,7 @@
           item.style.cssText = colStyle;
           const label = document.createElement('span');
           label.className = 'font-medium text-slate-600 truncate';
-          label.textContent = semTitle;
+          label.textContent = semTitle;                       // textContent: titles are user input
           const cr = document.createElement('span');
           cr.className = 'text-right text-slate-500';
           cr.textContent = String(semCredits);
@@ -1546,6 +1406,7 @@
       updateTargetPlanner();
     }
 
+    // GPA needed over the remaining credits to land on the target OGPA.
     function updateTargetPlanner() {
       const out = $('targetResult');
       const { totalCredits = 0, totalPoints = 0 } = window.__totals || {};
@@ -1559,16 +1420,17 @@
       const needed = (target * (totalCredits + remaining) - totalPoints) / remaining;
       if (needed > 10) {
         out.className = 'text-xs text-red-600 font-medium';
-        out.textContent = `Not reachable: you would need ${needed.toFixed(2)} (above 10.00).`;
+        out.textContent = `Not reachable: you would need ${needed.toFixed(2)} (above the 10.00 maximum). The best possible OGPA is ${((totalPoints + 10 * remaining) / (totalCredits + remaining)).toFixed(2)}.`;
       } else if (needed <= 0) {
         out.className = 'text-xs theme-text font-medium';
-        out.textContent = 'Target already secured!';
+        out.textContent = 'Target already secured, whatever you score in the remaining credits.';
       } else {
         out.className = 'text-xs theme-text font-medium';
-        out.textContent = `You need an average GPA of ${needed.toFixed(2)} over the next ${remaining} credits.`;
+        out.textContent = `You need an average GPA of ${needed.toFixed(2)} (≈ ${(needed * 10).toFixed(1)}%) over the next ${remaining} credits.`;
       }
     }
 
+    /* ---------- Output: print, copy, export ---------- */
     function printAppSummaryView() { window.print(); }
 
     function copySummary() {
@@ -1587,7 +1449,7 @@
       lines.push('', `Cumulative OGPA: ${$('cumulativeOgpaDisplay').innerText}`, $('percentageDisplay').innerText);
       navigator.clipboard.writeText(lines.join('\n'))
         .then(() => toast('Summary copied to clipboard', 'success'))
-        .catch(() => toast('Could not copy to clipboard.', 'error'));
+        .catch(() => toast('Could not copy. Your browser blocked clipboard access.', 'error'));
     }
 
     function downloadFile(filename, content, mime) {
@@ -1604,6 +1466,7 @@
 
     function exportCSV() {
       calculateAll();
+      // Quote fields, and neutralise cells that spreadsheets would treat as formulas.
       const cell = (v) => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
       const rows = [['Semester', 'Course Code', 'Course Title', 'Credit Hours', 'Marks', 'Grade Point', 'Credit Point', 'Status']];
       document.querySelectorAll('.semester-card').forEach(card => {
@@ -1628,20 +1491,32 @@
       const file = input.files && input.files[0];
       input.value = '';
       if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { toast('That file is too large to be a backup.', 'error'); return; }
       const reader = new FileReader();
       reader.onload = () => {
         try {
           const parsed = JSON.parse(reader.result);
           const p = parsed && parsed.profile;
           if (!p || !Array.isArray(p.semesters)) throw new Error('bad shape');
+          const str = (v) => (v == null ? '' : String(v));
+          const clean = {
+            name: str(p.name), id: str(p.id), degree: str(p.degree), batch: str(p.batch),
+            passMark: Number.isFinite(+p.passMark) ? +p.passMark : 50,
+            theme: themePresets[p.theme] || p.theme === 'custom' ? p.theme : 'emerald',
+            customColor: /^#[0-9a-fA-F]{6}$/.test(str(p.customColor)) ? p.customColor : '#065f46',
+            semesters: p.semesters.map(s => ({
+              title: str(s.title),
+              courses: (Array.isArray(s.courses) ? s.courses : []).map(c => ({ code: str(c.code), title: str(c.title), split: str(c.split), marks: str(c.marks), gp: str(c.gp) }))
+            }))
+          };
           const pid = 'prof_' + Date.now();
-          cloudDataStore[pid] = p;
+          cloudDataStore[pid] = clean;
           markDirty(pid);
           activeProfileId = pid;
           initProfilesList();
           scheduleSave();
-          toast('Backup restored as new profile', 'success');
-        } catch (e) { toast('Invalid backup file.', 'error'); }
+          toast('Backup restored as a new profile', 'success');
+        } catch (e) { toast('That file is not a valid backup.', 'error'); }
       };
       reader.readAsText(file);
     }
