@@ -354,6 +354,7 @@ window.CURRICULA = [
         ["PHY 101", "Engineering Physics", "2+1"]
       ],
       "II": [
+        ["AGM 122", "General Microbiology", "2+1"],
         ["AST 102", "Principles of Engineering Mechanics", "1+1"],
         ["BIC 102", "General Biochemistry", "2+1"],
         ["ENS 102", "Environmental Sciences and Disaster Management", "2+1"],
@@ -398,7 +399,7 @@ window.CURRICULA = [
       ],
       "VI": [
         ["EEE 301", "Research Project - I (Students READY)", "0+2"],
-        ["EEE 302", "Semesteresterinar (Students READY)", "0+1"],
+        ["EEE 302", "Seminar (Students READY)", "0+1"],
         ["ENS 312", "Environmental Chemistry", "2+1"],
         ["ERG 305", "Wind Energy Systems", "2+1"],
         ["ERG 306", "Energy Auditing and Management", "2+1"],
@@ -824,11 +825,7 @@ window.CURRICULA = [
         ["BAE 111", "Engineering Drawing and Graphics", "1+2"],
         ["COM 102", "Computer Programming and Data Structures", "1+1"],
         ["AEX 101", "Communication Skills", "1+1"],
-        ["COM 101", "Agricultural Information and Artificial Intelligence", "1+1"],
-        ["TAM 151 / ENG 151", "மேளாண்மை அறிவியல் தமிழ் திறன் மேம்பாடு / English for Professional Skills", "0+2"],
-        ["REE 151 / REE 152", "1. Energy audit, Energy Conservation and Energy efficiency (Skill - I) / 2. Fabrication, Operation and maintenance of Renewable energy gadgets (Skill - I)", "0+2"],
-        ["SWE 151 / SWE 152", "1. Introduction to Environmental lab Practices / 2. Data Analysis and Visualization with MS - Excel, Power BI, tableau, Google Sheets and Locker studio", "0+2"],
-        ["NSS 101 / NCC 101", "National Service Scheme / National Cadet Corps", "0+1"]
+        ["COM 101", "Agricultural Information and Artificial Intelligence", "1+1"]
       ],
       "II": [
         ["BIC 102", "General Biochemistry", "2+1"],
@@ -836,10 +833,7 @@ window.CURRICULA = [
         ["FMP 112", "Basic Electrical Engineering", "2+1"],
         ["FMP 113", "Thermodynamics", "1+1"],
         ["AGR 114", "Crop Production and Protection Technologies", "2+1"],
-        ["ENS 101", "Environmental Studies and Disaster Management", "2+1"],
-        ["REE 123", "Valorisation of Agri- Biomass and organic waste", "0+2"],
-        ["SWE 123", "Introduction to waste Management Practices and Standards", "0+2"],
-        ["NSS 101 / NCC 101", "National Service Scheme / National Cadet Corps", "0+1"]
+        ["ENS 101", "Environmental Studies and Disaster Management", "2+1"]
       ]
     },
     "B.Tech. (Food Technology)": {
