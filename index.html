@@ -950,7 +950,8 @@
       const q = (filterQuery || '').toLowerCase();
       let matches = 0, hasActive = false;
 
-      for (const [pid, info] of Object.entries(cloudDataStore)) {
+      const byName = (a, b) => profileLabel(a[1]).localeCompare(profileLabel(b[1]), undefined, { sensitivity: 'base', numeric: true });
+      for (const [pid, info] of Object.entries(cloudDataStore).sort(byName)) {   // A to Z
         const label = profileLabel(info);
         if (q && !label.toLowerCase().includes(q)) continue;
         matches++;
@@ -1019,7 +1020,12 @@
 
     function handleProfileDetailInput() {
       const opt = $('profileSwitcher').querySelector(`option[value="${CSS.escape(activeProfileId)}"]`);
-      if (opt) opt.textContent = profileLabel({ name: $('studentNameInput').value, id: $('studentIdInput').value });
+      if (opt) {
+        opt.textContent = profileLabel({ name: $('studentNameInput').value, id: $('studentIdInput').value });
+        const sw = $('profileSwitcher'), keep = sw.value;   // keep the list in A to Z order while the name is being typed
+        [...sw.options].sort((a, b) => a.textContent.localeCompare(b.textContent, undefined, { sensitivity: 'base', numeric: true })).forEach(o => sw.appendChild(o));
+        sw.value = keep;
+      }
       // the first 4 digits of the ID number are the batch year
       const yr = ($('studentIdInput').value.trim().match(/^(\d{4})/) || [])[1];
       if (yr && +yr >= 1990 && +yr <= 2100 && $('batchInput').value !== batchLabel(yr)) { $('batchInput').value = batchLabel(yr); applyCatalogAuto(); }
