@@ -78,7 +78,32 @@
     .semester-card:hover { box-shadow: 0 10px 28px rgba(15,23,42,.09); }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
+    /* ---------- Step-by-step flow ---------- */
+    .step-pill { background: #fff; border-color: #e2e8f0; color: #64748b; cursor: default; }
+    .step-pill .step-num { background: #e2e8f0; color: #64748b; }
+    .step-pill.is-done { cursor: pointer; color: #334155; }
+    .step-pill.is-done .step-num { background: var(--primary-color); color: #fff; }
+    .step-pill.is-current { border-color: var(--primary-color); color: var(--primary-text); box-shadow: 0 4px 14px rgba(15,23,42,.08); }
+    .step-pill.is-current .step-num { background: var(--primary-color); color: #fff; }
+    .step-pill:disabled { opacity: .7; }
+    .step-panel.step-enter { animation: fadeUp .4s cubic-bezier(.2,.8,.2,1) both; }
+    .step-shake { animation: shakeX .35s ease; }
+    @keyframes shakeX { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+    /* ---------- Desktop only: everything on one page, results beside the marks. Phones keep the step-by-step flow. ---------- */
+    @media screen and (min-width: 1024px) {
+      #appMainContainer { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.5rem 2rem; max-width: 72rem; align-items: start; }
+      #appMainContainer > * { margin-top: 0 !important; }
+      #appMainContainer .step-panel, #appMainContainer .step-panel.hidden { display: block; }
+      .step-panel > .step-nav, .step-panel > .no-print:first-child { display: none !important; }
+      .step-panel > * + * { margin-top: 1.5rem; }
+      .step-panel[data-step="1"] { grid-column: 1 / -1; }
+      .step-panel[data-step="2"], .step-panel[data-step="3"] { grid-column: 1; }
+      .step-panel[data-step="4"] { grid-column: 2; grid-row: 2 / span 2; position: sticky; top: 1.5rem; }
+    }
+
     @media print {
+      .step-panel { display: block !important; }
       *, *::before, *::after { animation: none !important; transition: none !important; }
       body {
         background: white !important;
@@ -146,7 +171,10 @@
               <option value="emerald" class="text-slate-900">🌿 Emerald Green</option>
               <option value="ocean" class="text-slate-900">🌊 Ocean Blue</option>
               <option value="purple" class="text-slate-900">🟣 Royal Purple</option>
-              <option value="dark" class="text-slate-900">🌙 Slate Dark</option>
+              <option value="amber" class="text-slate-900">🌅 Sunset Amber</option>
+              <option value="rose" class="text-slate-900">🌹 Rose</option>
+              <option value="cyan" class="text-slate-900">🧊 Glacier Cyan</option>
+              <option value="dark" class="text-slate-900">⚫ Slate</option>
               <option value="custom" class="text-slate-900">🎨 Custom Color</option>
             </select>
             <input type="color" id="customColorPicker" value="#065f46" oninput="applyCustomColor(this.value)" title="Choose Custom Theme Color" aria-label="Custom theme color" class="w-6 h-6 rounded border-0 cursor-pointer bg-transparent">
@@ -167,8 +195,30 @@
     </div>
   </header>
 
-  <!-- Account & Searchable Profile Switcher Bar -->
-  <section class="max-w-6xl mx-auto mt-6 px-4 no-print w-full anim-card" style="animation-delay:.08s">
+  <main id="appMainContainer" class="max-w-4xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
+    <section class="step-panel space-y-5" data-step="1">
+      <div class="no-print">
+        <h2 class="text-2xl font-bold text-slate-800">Sign in and choose your profile</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex gap-3">
+          <div class="p-2 h-fit theme-card-light theme-text rounded-lg"><i data-lucide="shield-check" class="w-5 h-5"></i></div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800">Why sign in?</h3>
+            <p class="text-xs text-slate-600 mt-1">Your marks are saved in your own Google Drive, so you can open them on any device. Skip it and they stay on this device only.</p>
+          </div>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex gap-3">
+          <div class="p-2 h-fit theme-card-light theme-text rounded-lg"><i data-lucide="users" class="w-5 h-5"></i></div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800">What is a profile?</h3>
+            <p class="text-xs text-slate-600 mt-1">One profile holds one student's marks. Add another for a friend or a second programme.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="no-print">
     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div class="flex items-center gap-3">
         <div class="p-2.5 theme-card-light theme-text rounded-xl">
@@ -178,9 +228,7 @@
           <h1 class="text-sm font-bold text-slate-800">
             Google Account: <span id="currentUserDisplay" class="theme-text font-extrabold">Guest Mode</span>
           </h1>
-          <p class="text-slate-500 text-xs">
-            <span id="syncStatus" class="font-semibold">Ready</span> <button type="button" onclick="runCloudDiagnostics()" class="underline text-slate-500 hover:text-slate-800">Test cloud</button> • Sign in with Google to keep your data in your own Google Drive and use it on any device.
-          </p>
+          <p id="syncLine" class="text-slate-500 text-xs hidden"><span id="syncStatus" class="font-semibold">Ready</span></p>
         </div>
       </div>
 
@@ -201,12 +249,13 @@
         <div id="authActionContainer"></div>
       </div>
     </div>
-  </section>
-
-  <!-- App Main Content Container -->
-  <main id="appMainContainer" class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-    <div class="lg:col-span-8 space-y-6">
+      </div>
+      <div class="step-nav flex justify-between items-center pt-2 no-print"><span></span><button type="button" id="step1NextBtn" onclick="nextStep()" class="theme-btn-primary px-6 py-3 rounded-xl text-sm font-bold shadow-md flex items-center gap-2">Continue as guest <i data-lucide="arrow-right" class="w-4 h-4"></i></button></div>
+    </section>
+    <section class="step-panel space-y-5 hidden" data-step="2">
+      <div class="no-print">
+        <p class="text-xs text-slate-600 flex items-center gap-1.5"><i data-lucide="printer" class="w-3.5 h-3.5 theme-text"></i> You can take a printout of the final result at the end. Your name, ID and programme appear on it.</p>
+      </div>
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div class="flex items-center gap-2 border-b border-slate-100 pb-3 no-print">
           <i data-lucide="user-check" class="w-5 h-5 theme-text"></i>
@@ -218,7 +267,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
           <div>
             <label for="studentNameInput" class="block font-semibold text-slate-700 mb-1">Student Name</label>
-            <input type="text" id="studentNameInput" placeholder="Enter Name" oninput="handleProfileDetailInput()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
+            <input type="text" id="studentNameInput" oninput="handleProfileDetailInput()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white">
           </div>
           <div>
             <label for="studentIdInput" class="block font-semibold text-slate-700 mb-1">ID Number</label>
@@ -243,22 +292,47 @@
             </select>
           </div>
           <div>
-            <label for="batchInput" class="block font-semibold text-slate-700 mb-1">Batch Start Year</label>
-            <input type="number" id="batchInput" placeholder="e.g. 2024" oninput="onProgrammeOrBatchChange()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white text-center font-semibold">
+            <label for="batchInput" class="block font-semibold text-slate-700 mb-1">Batch</label>
+            <input type="text" inputmode="numeric" id="batchInput" oninput="onProgrammeOrBatchChange()" onchange="this.value = batchLabel(this.value)" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white text-center font-semibold">
           </div>
           <div>
-            <label for="semsDoneInput" class="block font-semibold text-slate-700 mb-1">Semesters Completed</label>
+            <label for="semsDoneInput" class="block font-semibold text-slate-700 mb-1">Semesters</label>
             <select id="semsDoneInput" onchange="onProgrammeOrBatchChange()" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white cursor-pointer">
               <option value="">All available</option>
-              <option value="1">1 semester</option>
-              <option value="2">2 semesters</option>
-              <option value="3">3 semesters</option>
-              <option value="4">4 semesters</option>
-              <option value="5">5 semesters</option>
-              <option value="6">6 semesters</option>
-              <option value="7">7 semesters</option>
-              <option value="8">8 semesters</option>
+              <option value="1">I</option>
+              <option value="2">II</option>
+              <option value="3">III</option>
+              <option value="4">IV</option>
+              <option value="5">V</option>
+              <option value="6">VI</option>
+              <option value="7">VII</option>
+              <option value="8">VIII</option>
             </select>
+          </div>
+        </div>
+      </div>
+      <div class="step-nav flex justify-between items-center pt-2 no-print"><button type="button" onclick="goStep(1)" class="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-2">&larr; Back</button><button type="button"  onclick="nextStep()" class="theme-btn-primary px-6 py-3 rounded-xl text-sm font-bold shadow-md flex items-center gap-2">Continue to marks <i data-lucide="arrow-right" class="w-4 h-4"></i></button></div>
+    </section>
+    <section class="step-panel space-y-5 hidden" data-step="3">
+      <div class="no-print">
+        <h2 class="text-2xl font-bold text-slate-800">Enter your marks</h2>
+        <p class="text-sm text-slate-500 mt-1">Type marks in each semester, or paste many at once with the quick importer.</p>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 no-print">
+        <div class="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+          <i data-lucide="clipboard-list" class="w-5 h-5 theme-text"></i>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800">Quick Text Bulk Importer</h3>
+            <p class="text-[11px] text-slate-500">Type one course per line with its marks. Add "Sem 3" above to pick the semester.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 gap-2">
+          <textarea id="bulkImportInput" rows="4" aria-label="Paste course lines" class="w-full text-xs font-mono p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white"></textarea>
+          <div class="flex justify-between items-center">
+            <button onclick="clearImportText()" class="text-xs text-slate-400 hover:text-slate-600 font-medium">Clear Text Box</button>
+            <button onclick="processBulkImport()" class="px-4 py-2 theme-card-light theme-text border rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Parse &amp; Import
+            </button>
           </div>
         </div>
       </div>
@@ -271,10 +345,14 @@
           <i data-lucide="plus-circle" class="w-4 h-4"></i> Add New Semester
         </button>
       </div>
-    </div>
-
-    <div class="lg:col-span-4 space-y-6">
-      <div id="resultsCard" class="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-6 lg:sticky lg:top-6 anim-card" style="animation-delay:.2s">
+      <div class="step-nav flex justify-between items-center pt-2 no-print"><button type="button" onclick="goStep(2)" class="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-2">&larr; Back</button><button type="button"  onclick="nextStep()" class="theme-btn-primary px-6 py-3 rounded-xl text-sm font-bold shadow-md flex items-center gap-2">See my results <i data-lucide="arrow-right" class="w-4 h-4"></i></button></div>
+    </section>
+    <section class="step-panel space-y-5 hidden" data-step="4">
+      <div class="no-print">
+        <h2 class="text-2xl font-bold text-slate-800">Finally</h2>
+        <p class="text-sm text-slate-500 mt-1">Your OGPA, semester breakdown and target planner. Print, copy or export from here.</p>
+      </div>
+      <div id="resultsCard" class="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-6 anim-card" style="animation-delay:.2s">
         <div class="flex items-center justify-between border-b border-slate-100 pb-4">
           <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
             <i data-lucide="award" class="w-5 h-5 theme-text"></i> Cumulative OGPA
@@ -341,13 +419,14 @@
           <div class="grid grid-cols-2 gap-2 text-xs">
             <div>
               <label for="targetOgpaInput" class="block text-slate-500 mb-1">Target OGPA</label>
-              <input type="number" id="targetOgpaInput" step="0.01" min="0" max="10" placeholder="e.g. 8.50" oninput="updateTargetPlanner()" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-center font-semibold">
+              <input type="number" id="targetOgpaInput" step="0.01" min="0" max="10" oninput="updateTargetPlanner()" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-center font-semibold">
             </div>
             <div>
               <label for="remainingCreditsInput" class="block text-slate-500 mb-1">Credits left</label>
-              <input type="number" id="remainingCreditsInput" step="0.5" min="0" placeholder="e.g. 20" oninput="updateTargetPlanner()" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-center font-semibold">
+              <input type="number" id="remainingCreditsInput" step="0.5" min="0" oninput="creditsLeftEdited()" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-center font-semibold">
             </div>
           </div>
+          <p id="creditsLeftHint" class="text-[11px] text-slate-400 -mt-1"></p>
           <p id="targetResult" class="text-xs text-slate-500">Enter a target and the credits you still have to take.</p>
         </div>
 
@@ -372,7 +451,8 @@
           <input type="file" id="importFileInput" accept="application/json,.json" class="hidden" onchange="importProfileJSON(this)">
         </div>
       </div>
-    </div>
+      <div class="step-nav flex justify-between items-center pt-2 no-print"><button type="button" onclick="goStep(3)" class="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-2">&larr; Back</button><span></span></div>
+    </section>
   </main>
 
   <footer id="mainFooter" class="bg-white border-t border-slate-200 py-6 mt-auto text-center text-xs text-slate-500 no-print">
@@ -409,6 +489,9 @@
       emerald: { primary: '#065f46', hover: '#047857', light: '#ecfdf5', border: '#a7f3d0', text: '#065f46' },
       ocean:   { primary: '#1e40af', hover: '#1d4ed8', light: '#eff6ff', border: '#bfdbfe', text: '#1e40af' },
       purple:  { primary: '#6b21a8', hover: '#7e22ce', light: '#faf5ff', border: '#e9d5ff', text: '#6b21a8' },
+      amber:   { primary: '#b45309', hover: '#d97706', light: '#fffbeb', border: '#fde68a', text: '#b45309' },
+      rose:    { primary: '#be123c', hover: '#e11d48', light: '#fff1f2', border: '#fecdd3', text: '#be123c' },
+      cyan:    { primary: '#0e7490', hover: '#0891b2', light: '#ecfeff', border: '#a5f3fc', text: '#0e7490' },
       dark:    { primary: '#0f172a', hover: '#1e293b', light: '#f8fafc', border: '#cbd5e1', text: '#0f172a' }
     };
 
@@ -474,6 +557,7 @@
       const [text, cls] = map[state] || map.ready;
       el.textContent = detail ? `${text} (${detail})` : text;
       el.className = `font-semibold ${cls}${state === 'saving' ? ' animate-pulse' : ''}`;
+      const line = $('syncLine'); if (line) line.classList.toggle('hidden', state === 'ready');   // nothing to say until there is something to report
     }
 
     function profileLabel(info) {
@@ -530,6 +614,9 @@
       ok = step(() => { cloudDataStore = loadGuestStore(); restoreActiveProfileId(); }) && ok;
       ok = step(initProfilesList) && ok;      // the sheet itself comes first
       ok = step(renderAuthBar) && ok;
+      step(() => { if (!stepIssue(2)) maxStepReached = STEP_COUNT; });   // a returning student can jump straight to any step
+      step(() => goStep(1, { silent: true, force: true }));
+      step(() => { updateStep1Nav(); new MutationObserver(updateStep1Nav).observe($('currentUserDisplay'), { childList: true, characterData: true, subtree: true }); });
       step(icons);
       if (ok) window.__tnauBooted = true;
 
@@ -933,10 +1020,21 @@
     function handleProfileDetailInput() {
       const opt = $('profileSwitcher').querySelector(`option[value="${CSS.escape(activeProfileId)}"]`);
       if (opt) opt.textContent = profileLabel({ name: $('studentNameInput').value, id: $('studentIdInput').value });
+      // the first 4 digits of the ID number are the batch year
+      const yr = ($('studentIdInput').value.trim().match(/^(\d{4})/) || [])[1];
+      if (yr && +yr >= 1990 && +yr <= 2100 && $('batchInput').value !== batchLabel(yr)) { $('batchInput').value = batchLabel(yr); applyCatalogAuto(); }
       saveAndCalculate();
     }
 
     /* ---------- Formatting helpers ---------- */
+    /* 2024 -> "2024–2028": the start year, a dash, then the start year + 4 */
+    function batchLabel(v) {
+      const m = String(v || '').trim().match(/^(\d{4})/);
+      if (!m) return String(v || '').trim();
+      const y = +m[1];
+      return y >= 1900 && y < 2100 ? `${y}–${y + 4}` : m[1];
+    }
+
     function getFormattedBatchString() {
       const batchVal = $('batchInput').value.trim();
       const startYear = parseInt(batchVal, 10);
@@ -1119,9 +1217,9 @@
         <td class="px-3 py-2 text-slate-400 font-medium text-xs row-number text-center"></td>
         <td class="px-3 py-2"><input type="text" aria-label="Course code" placeholder="Code" oninput="saveAndCalculate()" class="course-code w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none uppercase font-semibold text-center"></td>
         <td class="px-3 py-2"><input type="text" aria-label="Course title" placeholder="Title" oninput="saveAndCalculate()" class="course-title w-full text-xs px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-left"></td>
-        <td class="px-3 py-2"><input type="text" aria-label="Credit hours" placeholder="e.g. 1+1" oninput="saveAndCalculate()" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
-        <td class="px-3 py-2"><input type="number" aria-label="Marks" step="0.1" min="0" max="100" placeholder="0 - 100" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
-        <td class="px-3 py-2"><input type="number" aria-label="Grade point" step="0.01" min="0" max="10" placeholder="0 - 10" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
+        <td class="px-3 py-2"><input type="text" aria-label="Credit hours" oninput="saveAndCalculate()" class="course-split w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
+        <td class="px-3 py-2"><input type="number" aria-label="Marks" step="0.1" min="0" max="100" oninput="syncScoreInputs(this.closest('tr'), 'marks')" class="course-marks w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
+        <td class="px-3 py-2"><input type="number" aria-label="Grade point" step="0.01" min="0" max="10" oninput="syncScoreInputs(this.closest('tr'), 'gp')" class="course-gp-input w-full text-xs font-medium px-2 py-1.5 border border-slate-200 rounded-lg outline-none text-center"></td>
         <td class="px-3 py-2 font-semibold theme-text text-xs course-cp text-center">0.00</td>
         <td class="px-3 py-2 text-center course-status"><span class="text-[11px] font-medium text-slate-400">-</span></td>
         <td class="px-3 py-2 text-center no-print"><button onclick="removeCourseRow(this)" aria-label="Remove course" class="text-slate-400 hover:text-red-500 p-1 rounded-md transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
@@ -1178,7 +1276,7 @@
       if (!card) return;
       const degree = $('degreeInput').value;
       const batchYear = parseInt($('batchInput').value, 10);
-      if (!degree || isNaN(batchYear)) { toast('Select the Degree Programme and enter the Batch Start Year first.', 'error'); return; }
+      if (!degree || isNaN(batchYear)) { toast('Select the Degree Programme and enter the Batch first.', 'error'); return; }
 
       if (!window.CURRICULA) { toast('The syllabus file (syllabus.js) did not load. Make sure it is uploaded in the same folder as this page, then refresh.', 'error', 10000); return; }
       const set = findCurriculum(batchYear);
@@ -1211,7 +1309,7 @@
     }
 
     /* ---------- Automatic syllabus fill ----------
-       Runs whenever the Degree Programme or Batch Start Year changes.
+       Runs whenever the Degree Programme or Batch changes.
        - Fills every semester that has nothing typed in yet (and creates the missing semester cards on a fresh sheet).
        - Never touches rows where you've entered marks/grade points, or semesters you've typed your own courses into.
        - If you switch programme/batch, un-marked rows from the previous syllabus are swapped for the new ones. */
@@ -1231,7 +1329,7 @@
       const degree = $('degreeInput').value;
       const raw = $('batchInput').value.trim();
       const year = parseInt(raw, 10);
-      const yearReady = /^\d{4}$/.test(raw) && year >= 2000;   // wait until a full year is typed
+      const yearReady = /^\d{4}(\D|$)/.test(raw) && year >= 2000 && (raw.length === 4 || /^\d{4}\s*[–-]\s*\d{4}$/.test(raw));   // wait until a full year is typed   // wait until a full year is typed
 
       if (degree && yearReady && !window.CURRICULA) { toast('The syllabus file (syllabus.js) did not load. Make sure it is uploaded in the same folder as this page, then refresh.', 'error', 10000); return; }
       const set = (degree && yearReady) ? findCurriculum(year) : null;
@@ -1298,6 +1396,253 @@
       if (filledCards) toast(`Filled ${filledRows} courses across ${filledCards} semester${filledCards > 1 ? 's' : ''} (${set.id}). Enter your marks.`, 'success');
     }
 
+    /* ---------- Step-by-step flow ---------- */
+    let currentStep = 1, maxStepReached = 1;
+    const STEP_COUNT = 4;
+
+    function stepIssue(n) {
+      if (n === 2) {
+        if (!$('degreeInput').value) return ['degreeInput', 'Choose the degree programme first.'];
+        if (!/^\d{4}/.test($('batchInput').value.trim())) return ['batchInput', 'Enter your ID number or the batch year first.'];
+      }
+      return null;
+    }
+
+    function goStep(n, opts = {}) {
+      n = Math.max(1, Math.min(STEP_COUNT, n));
+      if (n > maxStepReached && !opts.force) return;
+      currentStep = n;
+      document.querySelectorAll('.step-panel').forEach(panel => {
+        const on = Number(panel.dataset.step) === n;
+        panel.classList.toggle('hidden', !on);
+        if (on && !reducedMotion()) { panel.classList.remove('step-enter'); void panel.offsetWidth; panel.classList.add('step-enter'); }
+      });
+      document.querySelectorAll('.step-pill').forEach(pill => {
+        const i = Number(pill.dataset.pill);
+        pill.classList.toggle('is-current', i === n);
+        pill.classList.toggle('is-done', i < n || (i !== n && i <= maxStepReached));
+        pill.disabled = i > maxStepReached;
+        pill.setAttribute('aria-current', i === n ? 'step' : 'false');
+      });
+      if (!opts.silent) window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      icons();
+    }
+
+    function nextStep() {
+      const issue = stepIssue(currentStep);   // what must be filled in before leaving this step
+      if (issue) {
+        const el = $(issue[0]);
+        toast(issue[1], 'error');
+        if (el) { el.focus(); el.classList.remove('step-shake'); void el.offsetWidth; el.classList.add('step-shake'); }
+        return;
+      }
+      maxStepReached = Math.max(maxStepReached, currentStep + 1);
+      goStep(currentStep + 1);
+    }
+
+    function updateStep1Nav() {
+      const btn = $('step1NextBtn'); if (!btn) return;
+      const guest = /guest/i.test($('currentUserDisplay').textContent);
+      btn.firstChild.nodeValue = guest ? 'Continue as guest ' : 'Continue ';
+    }
+
+    /* ---------- Bulk text import ---------- */
+    function clearImportText() { $('bulkImportInput').value = ''; }
+
+    function parseBulkLine(raw) {
+      const line = raw.replace(/\t+/g, '  ').replace(/\s{2,}/g, '  ').trim();
+      const codeMatch = line.match(/^\s*(?:\d+[.)]?\s+)?([A-Za-z]{2,5}\s*\d{2,3})\b/) || line.match(/\b([A-Za-z]{2,5}\s*\d{2,3})\b/);
+      if (!codeMatch) return null;
+      const code = codeMatch[1].replace(/\s+/g, ' ').toUpperCase().trim();
+      let rest = line.replace(codeMatch[0], ' ').trim();
+      let split = '';
+      const splitMatch = rest.match(/\b(\d{1,2}\s*\+\s*\d{1,2})\b/);
+      if (splitMatch) { split = splitMatch[1].replace(/\s+/g, ''); rest = rest.replace(splitMatch[0], ' ').trim(); }
+      // up to two trailing numbers: marks (above 10) and/or grade point (10 or below)
+      const tokens = rest.split(/\s+/).filter(Boolean);
+      let marks = '', gp = '';
+      for (let i = 0; i < 2 && tokens.length; i++) {
+        const t = tokens[tokens.length - 1];
+        if (!/^\d+(\.\d+)?$/.test(t)) break;
+        const n = parseFloat(t);
+        if (n <= 10 && gp === '') gp = n; else if (n > 10 && n <= 100 && marks === '') marks = n; else break;
+        tokens.pop();
+      }
+      const title = tokens.join(' ').replace(/^[.\-\u2013:)\s]+/, '').trim();
+      return { code, title, split, marks, gp };
+    }
+
+    /* Understands headers such as: Sem 1, Sem-I, SEM.III, S2, S-4, Semester Three, 1st sem, II semester,
+       3rd Semester, Sem1, Smstr 5, Term 6, "I Sem:", "== Semester VII ==", "Sem 4 (Final Year)". Returns 1-12 or 0. */
+    function parseSemesterHeader(raw) {
+      let s = raw.toLowerCase().replace(/[\u2013\u2014_]/g, '-');
+      s = s.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ');            // drop notes in brackets
+      s = s.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '').replace(/[-.:,]+/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!s || s.length > 30) return 0;
+      const words = { first:1, second:2, third:3, fourth:4, fifth:5, sixth:6, seventh:7, eighth:8, ninth:9, tenth:10, eleventh:11, twelfth:12,
+        one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, eleven:11, twelve:12 };
+      const NUM = '(\\d{1,2}(?:st|nd|rd|th)?|[ivx]{1,5}|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)';
+      const LBL = '(?:semesters?|semester|sems?|smstr|smstrs|semstr|sm|term|trimester|s)';
+      const m = s.match(new RegExp('^' + LBL + ' ?' + NUM + '$')) || s.match(new RegExp('^' + NUM + ' ?' + LBL + '$'));
+      if (!m) return 0;
+      let v = m[1];
+      let n;
+      if (words[v]) n = words[v];
+      else if (/^\d/.test(v)) n = parseInt(v, 10);
+      else n = romanToInt(v.toUpperCase());
+      return n >= 1 && n <= 12 ? n : 0;
+    }
+
+    /* ---------- Marks by short name: "Thermo 75", "FMP - 80", "thermo mark 7.5" ---------- */
+    const NAME_STOP = new Set(['and', 'of', 'the', 'in', 'for', 'to', 'a', 'an', 'with', 'on']);
+    const normKey = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+    function scoreRowForKey(row, key, keyWords) {
+      const code = row.querySelector('.course-code').value;
+      const title = row.querySelector('.course-title').value.toLowerCase();
+      if (!key) return 0;
+      const codeKey = normKey(code), codeLetters = codeKey.replace(/\d/g, '');
+      const words = title.split(/[^a-z0-9]+/).filter(Boolean);
+      const sig = words.filter(w => !NAME_STOP.has(w));
+      const acro = sig.map(w => w[0]).join('');
+      if (codeKey && key === codeKey) return 100;
+      if (codeLetters && key === codeLetters) return 80;
+      if (acro.length >= 2 && key === acro) return 75;
+      if (key === normKey(title)) return 90;
+      if (keyWords.length && keyWords.every(k => sig.some(w => w.startsWith(k)))) return 60 + Math.min(keyWords.length, 3);
+      if (key.length >= 4 && normKey(title).includes(key)) return 40;
+      return 0;
+    }
+
+    /* Finds the one course row a short name refers to; the current semester wins ties. Returns {row} or {ambiguous:true}. */
+    function findRowByShortName(name, preferCard) {
+      const key = normKey(name);
+      const keyWords = name.toLowerCase().split(/[^a-z0-9]+/).filter(w => w && !NAME_STOP.has(w));
+      const scored = [];
+      document.querySelectorAll('.semester-card').forEach(card => {
+        card.querySelectorAll('.courseTableBody tr').forEach(row => {
+          const s = scoreRowForKey(row, key, keyWords);
+          if (s) scored.push({ row, s: s + (preferCard && card === preferCard ? 0.5 : 0) });
+        });
+      });
+      if (!scored.length) return null;
+      scored.sort((a, b) => b.s - a.s);
+      if (scored.length > 1 && Math.abs(scored[0].s - scored[1].s) < 0.01) return { ambiguous: true };
+      return { row: scored[0].row };
+    }
+
+    /* "name  number  [number]" with no credit split. Returns {name, marks, gp} or null. */
+    function parseShortMarkLine(raw) {
+      let s = raw.replace(/\t+/g, '  ').trim();
+      if (/\d\s*\+\s*\d/.test(s)) return null;
+      s = s.replace(/\b(marks?|mark|score|grade\s*points?|gp|gpa|=|is)\b/gi, ' ').replace(/[:=\-\u2013]+(?=\s|\d|$)/g, ' ');
+      const tokens = s.split(/\s+/).filter(Boolean);
+      let marks = '', gp = '', n = 0;
+      while (tokens.length > 1 && n < 2 && /^\d+(\.\d+)?$/.test(tokens[tokens.length - 1])) {
+        const v = parseFloat(tokens.pop()); n++;
+        if (v <= 10 && gp === '') gp = v; else if (v > 10 && v <= 100 && marks === '') marks = v; else { tokens.push(String(v)); n--; break; }
+      }
+      if (!n || !tokens.length) return null;
+      return { name: tokens.join(' '), marks, gp };
+    }
+
+    function applyMarksToRow(row, marks, gp) {
+      if (marks !== '') { row.querySelector('.course-marks').value = marks; if (gp !== '') row.querySelector('.course-gp-input').value = gp; else deriveScores(row, 'marks'); }
+      else if (gp !== '') { row.querySelector('.course-gp-input').value = gp; deriveScores(row, 'gp'); }
+    }
+
+    let pendingUnmatched = new Set();   // lines that were not found last time; importing them again adds them as new courses
+
+    function processBulkImport() {
+      const text = $('bulkImportInput').value;
+      if (!text.trim()) { toast('Paste some course lines first.', 'error'); return; }
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const cardFor = (roman) => [...document.querySelectorAll('.semester-card')].find(c => cardRoman(c) === roman);
+      let currentSemId = null, added = 0, updated = 0, skipped = 0;
+      const notFound = [], unmatched = [];
+      let lastHeader = '';
+
+      const handleUnmatched = (line, sm, reason) => {
+        if (reason !== 'ambiguous' && pendingUnmatched.has(normKey(line))) {   // checked once already: add it as a new course
+          if (!currentSemId) {
+            const cards = document.querySelectorAll('.semester-card');
+            currentSemId = cards.length ? cards[cards.length - 1].id : addNewSemesterBlock();
+          }
+          const looksLikeCode = /^[A-Za-z]{2,5}\s*\d{2,3}$/.test(sm.name);
+          const r = addCourseRowToSem(currentSemId, { code: looksLikeCode ? sm.name.toUpperCase() : '', title: looksLikeCode ? '' : sm.name, split: '', marks: sm.marks, gp: sm.gp });
+          if (r && sm.marks !== '' && sm.gp !== '') r.querySelector('.course-gp-input').value = sm.gp;
+          added++; return;
+        }
+        skipped++; notFound.push(sm.name + (reason === 'ambiguous' ? ' (matches more than one course)' : ''));
+        unmatched.push({ header: lastHeader, line });
+      };
+
+      isLoading = true;   // avoid recalculating and saving for every single row
+      try {
+        for (const line of lines) {
+          const semNo = parseSemesterHeader(line);
+          if (semNo) {
+            lastHeader = line;
+            const roman = toRoman(semNo);
+            const card = cardFor(roman);
+            currentSemId = card ? card.id : addNewSemesterBlock(`Semester ${roman}`);
+            continue;
+          }
+          // short form first: "Thermo 75", "FMP 80", "thermo mark 7.5"
+          const sm = parseShortMarkLine(line);
+          if (sm) {
+            const exact = parseBulkLine(line);   // "FMP 212 75" is a full code, handled below when that code is on the sheet
+            const cur = currentSemId ? $(currentSemId) : null;
+            let hit = null;
+            if (exact && !exact.title && !exact.split) hit = findRowByShortName(exact.code, cur);
+            if (!hit || hit.ambiguous || normKey(hit.row.querySelector('.course-code').value) !== normKey(exact ? exact.code : '')) {
+              const byName = findRowByShortName(sm.name, cur);
+              if (byName && !byName.ambiguous) hit = byName;
+              else if (!(hit && hit.row)) hit = byName;
+            }
+            if (hit && hit.row) { applyMarksToRow(hit.row, sm.marks, sm.gp); updated++; continue; }
+            if (hit && hit.ambiguous) { handleUnmatched(line, sm, 'ambiguous'); continue; }
+          }
+          const c = parseBulkLine(line);
+          if (!c) { if (sm) handleUnmatched(line, sm); else skipped++; continue; }
+          if (sm && !c.title && !c.split) { handleUnmatched(line, sm); continue; }   // only marks given for an unknown course: do not invent a blank row
+          if (!currentSemId) {
+            const cards = document.querySelectorAll('.semester-card');
+            currentSemId = cards.length ? cards[cards.length - 1].id : addNewSemesterBlock();
+          }
+          const card = $(currentSemId);
+          const row = [...card.querySelectorAll('.courseTableBody tr')].find(r => r.querySelector('.course-code').value.trim().toUpperCase() === c.code);
+          if (row) {   // the course is already on the sheet: fill in what is missing
+            if (c.title && !row.querySelector('.course-title').value) row.querySelector('.course-title').value = c.title;
+            if (c.split && !row.querySelector('.course-split').value) row.querySelector('.course-split').value = c.split;
+            if (c.marks !== '') { row.querySelector('.course-marks').value = c.marks; if (c.gp !== '') row.querySelector('.course-gp-input').value = c.gp; else deriveScores(row, 'marks'); }
+            else if (c.gp !== '') { row.querySelector('.course-gp-input').value = c.gp; deriveScores(row, 'gp'); }
+            updated++;
+          } else {
+            const added_row = addCourseRowToSem(currentSemId, { code: c.code, title: c.title, split: c.split, marks: c.marks, gp: c.gp });
+            if (added_row && c.marks !== '' && c.gp !== '') added_row.querySelector('.course-gp-input').value = c.gp;
+            added++;
+          }
+        }
+      } finally { isLoading = false; }
+
+      sortSemesterCards();
+      saveAndCalculate();
+
+      pendingUnmatched = new Set(unmatched.map(u => normKey(u.line)));
+      const summary = `${added} course${added === 1 ? '' : 's'} added, ${updated} updated${skipped ? `, ${skipped} line${skipped === 1 ? '' : 's'} not imported` : ''}.`;
+      if (unmatched.length) {
+        // keep only the lines that need a second look, grouped under their semester headers
+        let out = [], hdr = null;
+        unmatched.forEach(u => { if (u.header && u.header !== hdr) { out.push(u.header); hdr = u.header; } out.push(u.line); });
+        $('bulkImportInput').value = out.join('\n');
+        toast(`${summary} Please check: ${notFound.slice(0, 4).join(', ')}. They are left in the box. Fix the spelling and import again, or press Parse & Import again to add them as new courses.`, 'error', 12000);
+      } else if (added || updated) {
+        toast(summary, 'success', 5000);
+        clearImportText();
+      } else toast('No course lines recognised. Type one course per line with its marks.', 'error', 7000);
+    }
+
     /* ---------- Save / load profile ---------- */
     function collectActiveProfile() {
       const p = cloudDataStore[activeProfileId] || (cloudDataStore[activeProfileId] = {});
@@ -1341,11 +1686,12 @@
         $('studentNameInput').value = data.name || '';
         $('studentIdInput').value = data.id || '';
         $('degreeInput').value = data.degree || '';
-        $('batchInput').value = data.batch || '';
+        $('batchInput').value = batchLabel(data.batch);
         $('semsDoneInput').value = data.semsDone || '';
         setPassMark(data.passMark ?? 50);
 
         if (data.theme) {
+          if (data.theme !== 'custom' && !themePresets[data.theme]) data.theme = 'emerald';   // old dark/light choices fall back to emerald
           $('presetThemeSelect').value = data.theme;
           if (data.theme === 'custom' && data.customColor) { $('customColorPicker').value = data.customColor; applyCustomColor(data.customColor); }
           else applyPresetTheme(data.theme);
@@ -1469,10 +1815,38 @@
       arrEl.className = 'font-semibold ' + (arrears ? 'text-red-600' : 'text-slate-800');
 
       window.__totals = { totalCredits, totalPoints, ogpa };
+      syncCreditsLeft();
       updateTargetPlanner();
     }
 
     // GPA needed over the remaining credits to land on the target OGPA.
+    /* Credits left = credit hours of every course in the semesters on the list that has no marks or grade point yet. */
+    function autoCreditsLeft() {
+      let left = 0;
+      document.querySelectorAll('.semester-card .courseTableBody tr').forEach(tr => {
+        const split = tr.querySelector('.course-split').value;
+        const named = tr.querySelector('.course-code').value.trim() || tr.querySelector('.course-title').value.trim();
+        if (named && !rowHasScores(tr)) left += creditsOf(split);
+      });
+      return left;
+    }
+
+    function syncCreditsLeft() {
+      const el = $('remainingCreditsInput'); if (!el) return;
+      if (el.dataset.manual === '1') return;   // the student typed their own figure
+      const left = autoCreditsLeft();
+      el.value = left > 0 ? String(left) : '';
+      const hint = $('creditsLeftHint'); if (hint) hint.textContent = 'Worked out from your semesters. Type to change it.';
+    }
+
+    function creditsLeftEdited() {
+      const el = $('remainingCreditsInput');
+      if (el.value.trim() === '') { delete el.dataset.manual; syncCreditsLeft(); }   // clearing it goes back to automatic
+      else el.dataset.manual = '1';
+      const hint = $('creditsLeftHint'); if (hint) hint.textContent = el.dataset.manual === '1' ? 'Your own figure. Clear the box to calculate it automatically again.' : 'Worked out from your semesters. Type to change it.';
+      updateTargetPlanner();
+    }
+
     function updateTargetPlanner() {
       const out = $('targetResult');
       const { totalCredits = 0, totalPoints = 0 } = window.__totals || {};
