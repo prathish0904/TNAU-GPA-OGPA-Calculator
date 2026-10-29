@@ -937,7 +937,21 @@
     }
 
     /* ---------- Profiles ---------- */
+    /* The starter "Default Student" profile is only there so the page has something to open.
+       Once a real profile exists, an unused starter profile is removed from the list. */
+    function dropUnusedDefault() {
+      const d = cloudDataStore[DEFAULT_PROFILE_ID];
+      if (!d || Object.keys(cloudDataStore).length < 2) return;
+      const untouched = d.name === 'Default Student' && !d.id && !d.degree && !d.batch && !storeHasContent({ d });
+      if (!untouched) return;
+      markDeleted(DEFAULT_PROFILE_ID);
+      delete cloudDataStore[DEFAULT_PROFILE_ID];
+      if (activeProfileId === DEFAULT_PROFILE_ID) activeProfileId = Object.keys(cloudDataStore)[0];
+      scheduleSave();
+    }
+
     function initProfilesList() {
+      dropUnusedDefault();
       renderProfileSwitcher('');
       $('profileSearchInput').value = '';
       loadProfileData(activeProfileId);
